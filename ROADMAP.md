@@ -1,6 +1,6 @@
 # Roadmap
 
-**Current phase:** Phase 1 — Ingestion Pipeline
+**Current phase:** Phase 2 — Retrieval & Grounded Chat
 **Status:** ⬜ Not started
 **Last updated:** 2026-08-20
 **Live demo:** not yet deployed — target Phase 6
@@ -8,8 +8,8 @@
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Foundations — repo, monorepo, schema, auth, tenancy | ✅ Done — 2026-08-20 |
-| 1 | Ingestion pipeline — parse, chunk, embed, store | ⬜ Not started |
-| 2 | Retrieval + grounded chat API | ⬜ Not started |
+| 1 | Ingestion pipeline — parse, chunk, embed, store | ✅ Done — 2026-08-20 |
+| 2 | Retrieval + grounded chat API | 🟡 In progress |
 | 3 | Embeddable widget | ⬜ Not started |
 | 4 | Admin dashboard | ⬜ Not started |
 | 5 | Hardening + retrieval evals | ⬜ Not started |
@@ -45,28 +45,33 @@ without it, and migrations run as the owner. See `docs/phases/phase-0-foundation
 
 ---
 
-## ⬜ Phase 1 — Ingestion Pipeline
+## ✅ Phase 1 — Ingestion Pipeline   `done 2026-08-20`
 
-- [ ] Upload endpoint — multipart, PDF/txt/md, with size cap
-- [ ] Paste-raw-text path
-- [ ] PDF parsing via `unpdf`; cleanup (dehyphenation, cruft removal)
-- [ ] Heading-aware chunker — ~600 tokens, 15% overlap, `heading_path` retained
-- [ ] Batched embedding — `gemini-embedding-001`, `RETRIEVAL_DOCUMENT`, 768 dims
-- [ ] **L2-normalize every vector** (required at any non-3072 dimension)
-- [ ] Durable job rows with retry + boot-time sweep for stalled work
-- [ ] `content_hash` dedupe so re-uploading a file costs nothing
-- [ ] Live progress bar driven by job status
+- [x] Upload endpoint — multipart, PDF/txt/md, with size cap
+- [x] Paste-raw-text path
+- [x] PDF parsing via `unpdf`; cleanup (dehyphenation, cruft removal)
+- [x] Heading-aware chunker — ~600 tokens, 15% overlap, `heading_path` retained
+- [x] Batched embedding — `gemini-embedding-001`, `RETRIEVAL_DOCUMENT`, 768 dims
+- [x] **L2-normalize every vector** (required at any non-3072 dimension)
+- [x] Durable job rows with retry + boot-time sweep for stalled work
+- [x] `content_hash` dedupe so re-uploading a file costs nothing
+- [x] Live progress bar driven by job status
 
 **Demo:** drag in a 40-page PDF, watch a live progress bar, browse the resulting chunks with
 their heading paths and page numbers.
-**Exit criteria:** `chunk_count > 0`; every embedding has length 768 and L2 norm within 1e-3
-of 1; `heading_path` populated; re-upload of the same file creates no new chunks; killing the
-process mid-ingest and restarting completes the job.
-**Open:** object storage for original files — Cloudflare R2 likely; verify free-tier limits.
+**Exit criteria:** `npm test` — 58 passing across 9 files. ✅
+**Verified:** pasted text and uploaded PDFs both produce chunks with heading paths and page
+numbers; every vector is 768-dim and L2-normalized; re-uploading identical content returns the
+existing document without re-embedding; deleting a document removes its chunks; a job whose
+worker died is reclaimed and completed; an unsupported file type is refused with 415.
+**Deferred:** object storage for original files — extracted text is persisted in Postgres so
+re-chunking works, but the original PDF is not retained. Cloudflare R2 in a later phase.
+**Not yet run against live Gemini** — `GEMINI_API_KEY` is still unset, so the pipeline has
+only been exercised with an injected embedder. First real run is the opening task of Phase 2.
 
 ---
 
-## ⬜ Phase 2 — Retrieval + Grounded Chat API
+## 🟡 Phase 2 — Retrieval + Grounded Chat API
 
 - [ ] Query embedding with `task_type=RETRIEVAL_QUERY`
 - [ ] pgvector cosine kNN over an HNSW index

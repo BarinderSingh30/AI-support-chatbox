@@ -18,12 +18,14 @@
     "@fastify/multipart": "10.1.1",
     "@fastify/rate-limit": "11.2.0",
     "@fastify/sensible": "6.0.5",
+    "@google/genai": "^2.18.0",
     "@groundwork/shared": "*",
     "better-auth": "1.7.1",
     "dotenv": "17.4.2",
     "drizzle-orm": "0.45.2",
     "fastify": "5.12.1",
     "pg": "8.23.0",
+    "unpdf": "^1.8.1",
     "zod": "4.4.3"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 import {
-  pgTable, text, integer, timestamp, index, uniqueIndex, vector,
+  pgTable, text, integer, timestamp, index, uniqueIndex, vector, jsonb,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { organization } from './auth.ts';
@@ -23,6 +23,12 @@ export const documents = pgTable(
     chunkCount: integer('chunk_count').notNull().default(0),
     tokenCount: integer('token_count').notNull().default(0),
     embeddingModel: text('embedding_model'),
+    // Parsed text is kept so a document can be re-chunked or re-embedded without
+    // re-uploading the original. Costs storage; buys migration ability when the
+    // chunking strategy or embedding model changes.
+    extractedText: text('extracted_text'),
+    // Character offset where each PDF page begins, for page-numbered citations.
+    pageBreaks: jsonb('page_breaks').$type<number[]>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
