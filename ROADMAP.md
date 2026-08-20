@@ -1,8 +1,8 @@
 # Roadmap
 
-**Current phase:** Phase 4 — Admin Dashboard
+**Current phase:** Phase 5 — Hardening + Evals
 **Status:** ⬜ Not started
-**Last updated:** 2026-08-20
+**Last updated:** 2026-08-21
 **Live demo:** not yet deployed — target Phase 6
 
 | Phase | Scope | Status |
@@ -11,7 +11,7 @@
 | 1 | Ingestion pipeline — parse, chunk, embed, store | ✅ Done — 2026-08-20 |
 | 2 | Retrieval + grounded chat API | ✅ Done — 2026-08-20 |
 | 3 | Embeddable widget | ✅ Done — 2026-08-20 |
-| 4 | Admin dashboard | ⬜ Not started |
+| 4 | Admin dashboard | ✅ Done — 2026-08-21 |
 | 5 | Hardening + retrieval evals | ⬜ Not started |
 | 6 | Deploy + case study | ⬜ Not started |
 
@@ -124,19 +124,39 @@ missed both: `docs/phases/phase-3-widget.md`.
 
 ---
 
-## ⬜ Phase 4 — Admin Dashboard
+## ✅ Phase 4 — Admin Dashboard   `done 2026-08-21`
 
-- [ ] Document library — status, size, chunk count, re-embed, delete
-- [ ] Conversation browser with full transcripts and the citations each answer used
-- [ ] Analytics — messages over time, answer rate, spend by day
-- [ ] **Top unanswered questions**, mined from low-`top_score` messages
-- [ ] Widget configurator with live preview
-- [ ] Widget key management — create, revoke, set allowed origins and caps
+- [x] Document library — status, size, chunk count, re-embed, delete
+- [x] Conversation browser with full transcripts and the citations each answer used
+- [x] Analytics — messages over time, answer rate, spend by day
+- [x] **Top unanswered questions**, mined from low-`top_score` messages
+- [x] Widget configurator with live preview
+- [x] Widget key management — create, revoke, set allowed origins and caps
 
 **Demo:** the full loop — upload a document, chat from the widget, watch the conversation and
 its cost appear in the dashboard.
 **Exit criteria:** dashboard message count, answer rate, and cost figures match the
-`usage_events` rows for the same window.
+`usage_events` rows for the same window. ✅
+**Verified:** signed in as a real user, uploaded a document (ready, 1 chunk), and chatted
+against it from the widget dev URL — 4 messages total in the dashboard's Analytics, exactly
+matching a direct query of `chat_messages` (4 assistant rows: 1 `answered = true`, 3 `false`,
+giving `answerRate = 0.25` both places); total cost **$0.000239**, exactly matching
+`sum(cost_usd)` across all 6 raw `usage_events` rows (2 `chat` + 4 `embed`) for the org; the 3
+unanswered questions listed in the dashboard match the 3 `answered = false` rows verbatim.
+**Two real bugs found only by clicking through a real browser**, both invisible to 251 passing
+tests, curl, and the server's own request logs — full story in
+`docs/superpowers/plans/2026-08-20-phase-4-admin-dashboard.md`'s SDD ledger and below: (1)
+`reply.hijack()` in the Better Auth route handler skipped `@fastify/cors`'s header-injection
+hook, so every sign-in silently 200'd server-side while the browser discarded the response as
+cross-origin; (2) the widget configurator's live preview picked an arbitrary existing widget
+key rather than one actually scoped to the dashboard's own origin, so a saved config could
+still render the widget's built-in defaults without any error. Both fixed and covered by
+regression tests (`apps/api/tests/auth-cors.test.ts`,
+`apps/dashboard-app/tests/widget-configurator.test.tsx`).
+**Deferred to Phase 6:** self-serve sign-up and org creation UI (dashboard ships sign-in only;
+see `docs/superpowers/specs/2026-08-20-phase-4-admin-dashboard-design.md`).
+**Cut:** widget theming (the `theme` column on `org_settings`) and its dashboard editor —
+nothing in the widget renders it yet, so an editor would configure a setting with no effect.
 
 ---
 
@@ -149,6 +169,8 @@ its cost appear in the dashboard.
 - [ ] Integration tests: tenancy boundary, "I don't know" path, prompt-injection resistance
 - [ ] CI: typecheck, lint, test, and a lint rule forbidding direct DB imports outside
       `with-tenant.ts`
+- [ ] Semantic clustering of similar "unanswered" questions (Phase 4 shipped exact-text
+      grouping only — revisit once the eval set exists)
 
 **Demo:** `npm run eval` printing a retrieval scorecard.
 **Exit criteria:** scorecard runs in CI; exceeding a test org's monthly cap refuses requests

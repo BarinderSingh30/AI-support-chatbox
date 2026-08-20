@@ -17,6 +17,7 @@ const schema = z.object({
   CHAT_MODEL: z.string().default('gemini-2.5-flash'),
   BETTER_AUTH_SECRET: z.string().min(1),
   BETTER_AUTH_URL: z.string().default('http://localhost:3000'),
+  DASHBOARD_URL: z.string().default('http://localhost:5174'),
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 });

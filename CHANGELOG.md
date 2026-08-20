@@ -94,3 +94,36 @@ Phase 0 onward but was never actually wired to anything.
 - Verified live in a real browser: real greeting, real chips, clicking one produced a real
   Gemini answer with a correct citation, and the chips correctly vanished once the
   conversation started.
+
+## Phase 4 — Admin Dashboard · 2026-08-21
+
+A sign-in-only admin dashboard for the organization that owns the chatbot — everything an
+operator needs to see what the widget is doing and tune it, without touching the database.
+
+- **Document library**: upload, see status/size/chunk count live, re-embed, or delete.
+- **Conversation browser**: every visitor conversation, full transcript, and the exact
+  citations each answer used.
+- **Analytics**: messages per day, spend per day, and answer rate, plus the top questions the
+  bot couldn't answer — mined from low-confidence messages, so a gap in the documentation shows
+  up as a concrete list of things people actually asked.
+- **Widget configurator**: edit the greeting, suggested questions, and relevance threshold with
+  a live preview of the real embedded widget alongside the form — saves are debounced and the
+  preview remounts once each save lands, rather than trying to keep a draft in sync token by
+  token.
+- **Widget key management**: create, revoke, and scope keys to allowed origins from the
+  dashboard instead of the API directly.
+- New API modules backing all of the above: conversations, analytics, and org-settings —
+  session-authenticated, tenant-scoped like everything else in this project.
+- Sign-in only for now; self-serve sign-up and organization creation are Phase 6. Widget
+  theming was cut entirely — the column has existed since Phase 0, but nothing in the widget
+  renders it yet, so an editor for it would configure something with no effect.
+- Verified against a live server, live Postgres, and a real signed-in browser session: uploaded
+  a document, asked the widget a real question, and confirmed the dashboard's message count,
+  answer rate, and cost figures exactly matched a direct query of the underlying
+  `chat_messages`/`usage_events` rows.
+- **Two real bugs only a real browser session found**, both invisible to 251 passing tests and
+  direct `curl` checks: a hijacked auth route was silently dropping CORS response headers on
+  every real sign-in (curl doesn't enforce CORS, so it looked fine from the terminal), and the
+  widget preview could pick a widget key scoped to the wrong origin and quietly fall back to
+  generic content instead of erroring. Both fixed, both now covered by regression tests. Full
+  story in `docs/phases/phase-4-admin-dashboard.md`.

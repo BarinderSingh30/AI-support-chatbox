@@ -9,6 +9,9 @@ import { createGeminiChatProvider } from './llm/gemini.ts';
 import { createLazyChatProvider } from './llm/lazy.ts';
 import { chatRoutes } from './modules/chat/routes.ts';
 import { widgetKeyRoutes } from './modules/widget-keys/routes.ts';
+import { conversationRoutes } from './modules/conversations/routes.ts';
+import { analyticsRoutes } from './modules/analytics/routes.ts';
+import { orgSettingsRoutes } from './modules/org-settings/routes.ts';
 import { publicChatRoutes } from './modules/widget-keys/public-chat-routes.ts';
 import type { ChatProvider } from './llm/provider.ts';
 import { createWorker, type Worker } from './modules/ingestion/worker.ts';
@@ -49,12 +52,15 @@ export async function buildApp(deps: AppDeps = {}): Promise<BuiltApp> {
   // are registered as a SIBLING of this group, not nested inside it, and
   // manage their own CORS headers entirely.
   await app.register(async (admin) => {
-    await admin.register(cors, { origin: [env.BETTER_AUTH_URL], credentials: true });
+    await admin.register(cors, { origin: [env.BETTER_AUTH_URL, env.DASHBOARD_URL], credentials: true });
     await admin.register(authPlugin);
     await admin.register(multipart);
     await admin.register(documentRoutes(worker));
     await admin.register(chatRoutes({ embedder, chat }));
     await admin.register(widgetKeyRoutes);
+    await admin.register(conversationRoutes);
+    await admin.register(analyticsRoutes);
+    await admin.register(orgSettingsRoutes);
   });
 
   await app.register(publicChatRoutes({ embedder, chat }));

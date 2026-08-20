@@ -33,6 +33,10 @@ tmp/
 # ── Local database ────────────────────────────────────────────────────────────
 pgdata/
 
+# ── Subagent-driven-development scratch ──────────────────────────────────────
+# Ledgers, briefs, and review packages for in-progress plan execution.
+.superpowers/
+
 # ── Editor / OS ───────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
