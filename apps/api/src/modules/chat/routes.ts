@@ -4,7 +4,8 @@ import { z } from 'zod';
 import { withTenant } from '../../db/with-tenant.ts';
 import { chatMessages, chatSessions, messageCitations, documentChunks } from '../../db/schema/index.ts';
 import { requireOrg } from '../../auth/guard.ts';
-import { answerQuestion, type AnswerDeps } from './answer.ts';
+import type { AnswerDeps } from './answer.ts';
+import { streamAnswer } from './stream.ts';
 
 const askSchema = z.object({
   question: z.string().min(1).max(2000),
@@ -25,51 +26,16 @@ export function chatRoutes(deps: AnswerDeps) {
       const parsed = askSchema.safeParse(req.body);
       if (!parsed.success) return reply.code(400).send({ error: z.prettifyError(parsed.error) });
 
-      reply.raw.writeHead(200, {
-        'content-type': 'text/event-stream',
-        'cache-control': 'no-cache, no-transform',
-        connection: 'keep-alive',
-        // Nginx and friends buffer streamed responses by default, which would
-        // defeat the point of streaming.
-        'x-accel-buffering': 'no',
+      await streamAnswer(reply, {
+        orgId: req.orgId!,
+        question: parsed.data.question,
+        sessionId: parsed.data.sessionId,
+        userAgent: req.headers['user-agent'],
+        deps,
       });
-
-      const send = (event: string, data: unknown) => {
-        reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-      };
-
-      try {
-        const gen = answerQuestion({
-          orgId: req.orgId!,
-          question: parsed.data.question,
-          sessionId: parsed.data.sessionId,
-          userAgent: req.headers['user-agent'],
-          deps,
-        });
-
-        let next = await gen.next();
-        while (!next.done) {
-          if (next.value.type === 'token') send('token', { text: next.value.text });
-          else send('citations', { citations: next.value.citations });
-          next = await gen.next();
-        }
-        send('done', {
-          sessionId: next.value.sessionId,
-          messageId: next.value.messageId,
-          answered: next.value.answered,
-          topScore: next.value.topScore,
-          latencyMs: next.value.latencyMs,
-          costUsd: Number(next.value.costUsd.toFixed(6)),
-        });
-      } catch (error) {
-        req.log.error({ err: error }, 'chat stream failed');
-        send('error', { error: 'answer generation failed' });
-      } finally {
-        reply.raw.end();
-      }
     });
 
-    /** Transcript with the passages each answer actually used. */
+        /** Transcript with the passages each answer actually used. */
     app.get('/v1/chat/sessions/:id', async (req, reply) => {
       const { id } = req.params as { id: string };
       const data = await withTenant(req.orgId!, async (tx) => {

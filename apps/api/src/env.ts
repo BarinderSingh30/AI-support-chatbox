@@ -10,6 +10,7 @@ const schema = z.object({
   DATABASE_URL: z.string().min(1),
   MIGRATION_DATABASE_URL: z.string().min(1),
   WORKER_DATABASE_URL: z.string().min(1),
+  PUBLIC_DATABASE_URL: z.string().min(1),
   GEMINI_API_KEY: z.string().default(''),
   EMBEDDING_MODEL: z.string().default('gemini-embedding-001'),
   EMBEDDING_DIMENSIONS: z.coerce.number().default(768),

@@ -91,6 +91,9 @@ describe('answerQuestion', () => {
     expect(result.answered).toBe(true);
     expect(result.citations).toHaveLength(1);
     expect(result.citations[0]?.headingPath).toBe('Refunds');
+    // The excerpt is what lets a user verify an answer against its actual
+    // source without leaving the widget.
+    expect(result.citations[0]?.excerpt).toContain('Refunds are issued');
   });
 
   it('does NOT call the model when nothing relevant is retrieved', async () => {

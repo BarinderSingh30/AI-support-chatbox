@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Unrelated Client Site (demo host)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 60px auto; padding: 0 20px; color: #1f2937; }
+    h1 { font-size: 1.4rem; }
+    code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Acme Robotics — Contact Us</h1>
+  <p>
+    This page stands in for an arbitrary client website. It has its own layout,
+    its own CSS, and no knowledge of Groundwork's styling — which is the point:
+    the chat launcher in the bottom-right corner is injected by four lines of
+    HTML and must not collide with anything on this page, or be affected by it.
+  </p>
+  <p>Click the launcher to open the chat and ask a question.</p>
+
+  <!--
+    The embed snippet. In production only data-key would be needed — data-api
+    and data-widget-url are explicit here because nothing is deployed yet
+    (see ROADMAP.md, Phase 6). Run scripts/demo-embed.mjs to fill these in and
+    serve this page.
+  -->
+  <script
+    src="http://127.0.0.1:5701/loader.js"
+    data-key="__WIDGET_KEY__"
+    data-api="http://127.0.0.1:3900"
+    data-widget-url="http://127.0.0.1:5701/"
+  ></script>
+</body>
+</html>

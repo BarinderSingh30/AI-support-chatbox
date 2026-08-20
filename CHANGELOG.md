@@ -51,3 +51,24 @@ Questions in, cited answers out — or an honest "I don't know".
   a document containing "ignore your instructions" cannot hijack the assistant.
 - Answers stream token by token rather than appearing all at once.
 - Every exchange records its tokens, latency, and cost. A typical answer costs about $0.0003.
+
+## Phase 3 — Embeddable Widget · 2026-08-20
+
+The chatbot can now be dropped onto any website, with no login and no server-side integration
+on the client's part.
+
+- A vanilla-JS loader (2.3KB, 1.1KB gzipped) injects a themed launcher and, on click, a chat
+  iframe — isolated in a shadow root so it can neither be broken by the host page's CSS nor
+  leak its own styling onto it.
+- A React chat app runs inside that iframe: streamed answers, an anonymous visitor identity
+  and conversation persisted across page loads, and citations that stay collapsed until
+  clicked, then reveal the exact source excerpt the answer was built from.
+- The widget authenticates by a public key rather than a login, scoped to an exact-match
+  allowlist of the domains it's permitted to run on, with its own per-key rate limit and
+  monthly message cap enforced before a request reaches the model.
+- Widget keys are managed through an admin API: create, list, and revoke, each scoped to the
+  organization that owns them.
+- Verified against a real running server with the actual production build — not just
+  component tests: a fresh page load runs the real bundle, asks a real question, gets a real
+  streamed answer with a real citation, and a request from a domain not on the allowlist is
+  refused end to end.

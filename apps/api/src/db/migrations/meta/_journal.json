@@ -43,6 +43,13 @@
       "when": 1787225128408,
       "tag": "0005_gate_threshold",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787229145847,
+      "tag": "0006_public_key_lookup",
+      "breakpoints": true
     }
   ]
 }

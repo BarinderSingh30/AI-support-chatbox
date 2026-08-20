@@ -19,6 +19,8 @@ const DEFAULTS = {
     "I couldn't find an answer to that in the documentation I have access to.",
 };
 
+const EXCERPT_LENGTH = 220;
+
 export interface Citation {
   n: number;
   chunkId: string;
@@ -28,6 +30,8 @@ export interface Citation {
   pageFrom: number | null;
   pageTo: number | null;
   similarity: number;
+  /** Lets a user verify the answer against its actual source in the widget. */
+  excerpt: string;
 }
 
 export type AnswerEvent =
@@ -80,6 +84,10 @@ function extractCitations(text: string, chunks: RetrievedChunk[]): Citation[] {
       pageFrom: chunk.pageFrom,
       pageTo: chunk.pageTo,
       similarity: chunk.similarity,
+      excerpt:
+        chunk.content.length > EXCERPT_LENGTH
+          ? `${chunk.content.slice(0, EXCERPT_LENGTH).trimEnd()}…`
+          : chunk.content,
     };
   });
 }

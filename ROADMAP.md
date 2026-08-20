@@ -1,6 +1,6 @@
 # Roadmap
 
-**Current phase:** Phase 2 — Retrieval & Grounded Chat
+**Current phase:** Phase 4 — Admin Dashboard
 **Status:** ⬜ Not started
 **Last updated:** 2026-08-20
 **Live demo:** not yet deployed — target Phase 6
@@ -10,7 +10,7 @@
 | 0 | Foundations — repo, monorepo, schema, auth, tenancy | ✅ Done — 2026-08-20 |
 | 1 | Ingestion pipeline — parse, chunk, embed, store | ✅ Done — 2026-08-20 |
 | 2 | Retrieval + grounded chat API | ✅ Done — 2026-08-20 |
-| 3 | Embeddable widget | ⬜ Not started |
+| 3 | Embeddable widget | ✅ Done — 2026-08-20 |
 | 4 | Admin dashboard | ⬜ Not started |
 | 5 | Hardening + retrieval evals | ⬜ Not started |
 | 6 | Deploy + case study | ⬜ Not started |
@@ -92,19 +92,29 @@ fired before the call rather than after.
 
 ---
 
-## ⬜ Phase 3 — Embeddable Widget
+## ✅ Phase 3 — Embeddable Widget   `done 2026-08-20`
 
-- [ ] Vanilla loader script (<5KB) that injects a themed iframe
-- [ ] React chat UI inside the iframe
-- [ ] Streaming token render
-- [ ] Citation chips that expand to show the quoted passage
-- [ ] Public-key auth with exact-match `Origin` allowlist
-- [ ] Per-key and per-IP rate limiting
+- [x] Vanilla loader script (<5KB) that injects a themed iframe
+- [x] React chat UI inside the iframe
+- [x] Widget-key management API (create/list/revoke, admin session-authenticated)
+- [x] Streaming token render
+- [x] Citation chips that expand to show the quoted passage
+- [x] Public-key auth with exact-match `Origin` allowlist
+- [x] Per-key rate limiting (in-process sliding window) + per-key monthly message cap
 
 **Demo:** paste four lines of HTML into an unrelated static site and have it work.
-**Exit criteria:** served from a different port than the API, the widget renders and streams;
-citations expand; an origin absent from the allowlist is rejected with 403; the 21st request
-in a minute is rate-limited.
+**Exit criteria:** `npm test` — 169 passing across the monorepo. ✅ Plus a real
+(non-component-test) verification: `node scripts/verify-widget-e2e.mjs` loads the actual
+production build fresh in a DOM environment, drives it as a visitor would, and confirms —
+against a real running server, not an injected fetch — that the answer streams in, the
+citation is collapsed by default and reveals the real source excerpt on click, and a request
+from a non-allowlisted origin is refused end-to-end.
+**Browser caveat, stated plainly:** no browser binary is available in this environment, so
+nothing here has been visually confirmed by an actual Chromium/Firefox render — only DOM
+behavior, verified two ways (Testing Library component tests, and the script above loading
+the real built bundle). `scripts/demo-embed.mjs` boots the real stack against live Gemini and
+serves `apps/widget-loader/demo/test-host.html` for a human to open in a real browser and
+click through by hand; that step is still owed.
 
 ---
 

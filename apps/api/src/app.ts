@@ -8,6 +8,8 @@ import { createGeminiEmbedder, createLazyEmbedder, type Embedder } from './modul
 import { createGeminiChatProvider } from './llm/gemini.ts';
 import { createLazyChatProvider } from './llm/lazy.ts';
 import { chatRoutes } from './modules/chat/routes.ts';
+import { widgetKeyRoutes } from './modules/widget-keys/routes.ts';
+import { publicChatRoutes } from './modules/widget-keys/public-chat-routes.ts';
 import type { ChatProvider } from './llm/provider.ts';
 import { createWorker, type Worker } from './modules/ingestion/worker.ts';
 import { env } from './env.ts';
@@ -39,11 +41,23 @@ export async function buildApp(deps: AppDeps = {}): Promise<BuiltApp> {
   const worker = createWorker({ embedder });
 
   await app.register(sensible);
-  await app.register(cors, { origin: [env.BETTER_AUTH_URL], credentials: true });
-  await app.register(authPlugin);
-  await app.register(multipart);
-  await app.register(documentRoutes(worker));
-  await app.register(chatRoutes({ embedder, chat }));
+
+  // Encapsulated: @fastify/cors auto-handles OPTIONS preflight for every route
+  // in its scope, and it is configured for the app's own origin only. The
+  // public widget routes need to accept any origin (the real gate is the
+  // per-key allowlist check, not CORS — see public-chat-routes.ts), so they
+  // are registered as a SIBLING of this group, not nested inside it, and
+  // manage their own CORS headers entirely.
+  await app.register(async (admin) => {
+    await admin.register(cors, { origin: [env.BETTER_AUTH_URL], credentials: true });
+    await admin.register(authPlugin);
+    await admin.register(multipart);
+    await admin.register(documentRoutes(worker));
+    await admin.register(chatRoutes({ embedder, chat }));
+    await admin.register(widgetKeyRoutes);
+  });
+
+  await app.register(publicChatRoutes({ embedder, chat }));
 
   app.get('/health', async () => ({ ok: true, ts: new Date().toISOString() }));
 
