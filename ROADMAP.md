@@ -28,7 +28,7 @@ scope stays visible so the record stays honest)*
 - [x] Initialize repository
 - [x] `.gitignore`, `README.md`, `ROADMAP.md`
 - [ ] npm workspaces + Turborepo + shared tsconfig
-- [ ] `docker-compose.yml` — local Postgres with pgvector
+- [ ] Local Postgres 18 + pgvector (native on Arch); `docker-compose.yml` kept for portability
 - [ ] Drizzle schema + first migration; `pgvector` extension enabled
 - [ ] Better Auth + organization plugin (orgs, members, invitations)
 - [ ] RLS policies on every app table; app role without `BYPASSRLS`

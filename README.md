@@ -86,20 +86,36 @@ Design decisions and their reasoning are recorded as ADRs in
 
 ## Getting started
 
-**Prerequisites:** Node 22+, Docker (for local Postgres with pgvector), and a Gemini API key.
+**Prerequisites:** Node 22+, PostgreSQL 16+ with the `pgvector` extension, and a Gemini API key.
 
 Local setup lands with the monorepo scaffold in Phase 0 — see [ROADMAP.md](./ROADMAP.md) for
 current progress. The intended flow:
 
 ```bash
 npm install
-cp .env.example .env      # add your GEMINI_API_KEY
-docker compose up -d      # postgres + pgvector
-npm run db:migrate
+cp .env.example .env      # add your GEMINI_API_KEY and DATABASE_URL
+npm run db:migrate        # creates schema, enables pgvector, applies RLS policies
 npm run seed              # two demo orgs with different content
 npm run dev
 ```
 
-## License
+### Database
 
-MIT
+Any Postgres 16+ with `pgvector` works. Two ways to get one:
+
+**Native** (lighter — no container runtime):
+
+```bash
+# Arch
+sudo pacman -S postgresql pgvector
+# Debian/Ubuntu
+sudo apt install postgresql postgresql-17-pgvector
+```
+
+**Docker** (portable — one command on any OS):
+
+```bash
+docker compose up -d
+```
+
+The migration enables the extension itself; you only need the binaries present.
