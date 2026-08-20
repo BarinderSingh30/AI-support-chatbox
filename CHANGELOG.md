@@ -33,3 +33,5 @@ Documents go in; searchable, embedded chunks come out.
   work abandoned by a stopped process is picked up and finished on restart.
 - Documents can be re-processed without re-uploading, and deleting one removes everything
   derived from it.
+- Verified end to end against the live Gemini API: a 24-page handbook is ingested in about a
+  second, and every stored vector is correctly sized and normalized.

@@ -64,10 +64,12 @@ their heading paths and page numbers.
 numbers; every vector is 768-dim and L2-normalized; re-uploading identical content returns the
 existing document without re-embedding; deleting a document removes its chunks; a job whose
 worker died is reclaimed and completed; an unsupported file type is refused with 415.
+**Live-verified against Gemini:** a 24-page PDF ingests in ~1.0s to 4 chunks; every stored
+vector is 768-dimensional with an L2 norm of exactly 1.000000; a query embedding ranks the
+semantically relevant passage above an irrelevant one. Reproduce with
+`npm run demo:ingest -w @groundwork/api`.
 **Deferred:** object storage for original files — extracted text is persisted in Postgres so
 re-chunking works, but the original PDF is not retained. Cloudflare R2 in a later phase.
-**Not yet run against live Gemini** — `GEMINI_API_KEY` is still unset, so the pipeline has
-only been exercised with an injected embedder. First real run is the opening task of Phase 2.
 
 ---
 

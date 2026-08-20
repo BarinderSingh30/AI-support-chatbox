@@ -48,3 +48,20 @@ chunk budget far below the model's 2048-token input limit, keeps the error harml
 - Object storage for original uploaded files. Extracted text is kept; the source PDF is not.
 - Live Gemini verification — `GEMINI_API_KEY` is unset, so the pipeline has only run against
   an injected embedder. First live run opens Phase 2.
+
+## Live verification (2026-08-20)
+
+Run against the real Gemini API, not a stub:
+
+- 24-page synthetic handbook → 4 chunks in ~1.0s.
+- Every stored vector: 768 dimensions, L2 norm 1.000000 (min and max).
+- Query/document task types produce a comparable space — a warranty question scores the
+  warranty passage above the shipping passage.
+- Reproduce: `npm run demo:ingest -w @groundwork/api`.
+
+**A bug this caught.** The in-memory PDF test fixture drew each page's text as one long
+unwrapped line. pdf.js clips anything past the MediaBox edge, so extraction silently lost
+everything after ~99 characters per page — and every E2E test passed happily against the
+truncated remainder. The fixture now wraps text to the page width, and
+`parsers.test.ts` asserts full round-trip fidelity so it cannot regress. Worth remembering
+that a green suite proves nothing about content the fixture never contained.

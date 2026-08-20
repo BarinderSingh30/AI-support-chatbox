@@ -11,6 +11,18 @@ describe('parsePdf', () => {
     expect(parsed.text).toContain('twenty four months');
   });
 
+  it('extracts the full text of a page without truncating it', async () => {
+    // Regression guard: an unwrapped line runs past the page edge and pdf.js
+    // clips it, so extraction silently loses text and every downstream
+    // assertion passes against content that was never there.
+    const long =
+      'Warranty coverage details continue at length across the page and must survive ' +
+      'extraction in full, including the closing sentence which sits far beyond the ' +
+      'width of a single unwrapped line of text.';
+    const parsed = await parsePdf(makePdf([long]));
+    expect(parsed.text.replace(/\s+/g, ' ')).toBe(long);
+  });
+
   it('records where each page starts so chunks can cite a page number', async () => {
     const pdf = makePdf(['First page text.', 'Second page text.']);
     const parsed = await parsePdf(pdf);
