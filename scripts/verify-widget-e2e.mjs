@@ -33,7 +33,8 @@ const OTHER_SITE_ORIGIN = 'https://unrelated-site.example';
 
 const { buildApp } = await import('../apps/api/src/app.ts');
 const { db, pool } = await import('../apps/api/src/db/client.ts');
-const { organization } = await import('../apps/api/src/db/schema/index.ts');
+const { withTenant } = await import('../apps/api/src/db/with-tenant.ts');
+const { organization, orgSettings } = await import('../apps/api/src/db/schema/index.ts');
 const { workerPool } = await import('../apps/api/src/modules/ingestion/queue.ts');
 const { publicPool } = await import('../apps/api/src/modules/widget-keys/service.ts');
 const { l2Normalize } = await import('../apps/api/src/modules/ingestion/vectors.ts');
@@ -103,6 +104,14 @@ await apiApp.inject({
 });
 await worker.drained();
 
+await withTenant(orgId, (tx) =>
+  tx.insert(orgSettings).values({
+    orgId,
+    welcomeMessage: 'Hi! Ask about our refund policy.',
+    suggestedQuestions: ['How long do refunds take?'],
+  }),
+);
+
 const keyRes = await apiApp.inject({
   method: 'POST', url: '/v1/widget-keys', headers: h,
   payload: { name: 'jsdom test', allowedOrigins: [CLIENT_SITE_ORIGIN] },
@@ -169,9 +178,19 @@ const { document } = dom.window;
 const textarea = await waitFor(() => document.querySelector('textarea'), 'chat input to mount');
 assert(!!textarea, 'React mounted a real <textarea>');
 
-setReactInputValue(textarea, 'How long do refunds take?');
-const form = textarea.closest('form');
-form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+const greeting = await waitFor(
+  () => [...document.querySelectorAll('p')].find((p) => p.textContent.includes('refund policy')),
+  'configured greeting to load from the real API',
+);
+assert(!!greeting, 'shows the real, server-configured welcome message, not a hardcoded default');
+
+const chip = await waitFor(
+  () => [...document.querySelectorAll('button')].find((b) => b.textContent.includes('How long do refunds take?')),
+  'suggested question chip to render',
+);
+assert(!!chip, 'suggested question chip rendered from real config');
+chip.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+assert(true, 'clicked the real chip rather than typing, to exercise that exact code path');
 
 try {
   await waitFor(

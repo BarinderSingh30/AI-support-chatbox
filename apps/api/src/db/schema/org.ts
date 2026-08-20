@@ -1,4 +1,5 @@
 import { pgTable, text, integer, real, jsonb } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { organization } from './auth.ts';
 
 export const orgSettings = pgTable('org_settings', {
@@ -8,6 +9,11 @@ export const orgSettings = pgTable('org_settings', {
   chatModel: text('chat_model').notNull().default('gemini-2.5-flash'),
   systemPrompt: text('system_prompt'),
   welcomeMessage: text('welcome_message'),
+  // Shown as clickable chips alongside the greeting when the chat opens with
+  // no messages yet. Admin-curated rather than derived from real traffic —
+  // a genuine "most asked" list needs the usage history Phase 5's analytics
+  // will provide; this is a reasonable placeholder until there's data to mine.
+  suggestedQuestions: text('suggested_questions').array().notNull().default(sql`'{}'::text[]`),
   noAnswerMessage: text('no_answer_message'),
   theme: jsonb('theme'),
   // The relevance gate: below this best-score, we answer "I don't know"

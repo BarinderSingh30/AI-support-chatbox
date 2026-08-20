@@ -75,3 +75,22 @@ on the client's part.
   its parent page's origin via the browser's `Origin` header, and a raw response-writing call
   was silently dropping CORS headers on the actual streamed reply); both are now fixed and
   covered by regression tests. Full story in `docs/phases/phase-3-widget.md`.
+
+## Widget greeting and suggested questions · 2026-08-20
+
+Added on top of the already-shipped widget: opening the chat with no prior conversation now
+shows a configurable greeting and clickable suggested-question chips instead of a generic
+placeholder — closing a gap where the `welcomeMessage` setting existed in the database from
+Phase 0 onward but was never actually wired to anything.
+
+- New `GET /v1/widget/config` endpoint, authenticated the same way as chat (public key +
+  origin) but deliberately outside the rate limiter and monthly cap — it's a config read on
+  mount, not a message, and must not compete with a visitor's actual message budget.
+- Suggested questions are admin-curated for now, not derived from real usage. A genuine "most
+  asked" list needs the traffic history Phase 5's analytics will provide; this is a reasonable
+  placeholder until there's data worth mining.
+- Clicking a chip sends its exact text through the same path as typing — same streaming, same
+  citations, same session continuity.
+- Verified live in a real browser: real greeting, real chips, clicking one produced a real
+  Gemini answer with a correct citation, and the chips correctly vanished once the
+  conversation started.

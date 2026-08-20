@@ -101,6 +101,9 @@ fired before the call rather than after.
 - [x] Citation chips that expand to show the quoted passage
 - [x] Public-key auth with exact-match origin allowlist (via a loader-captured `x-widget-origin`
       header, not the browser's `Origin` header — see notes below for why)
+- [x] Greeting + suggested-question chips on open, added post-completion 2026-08-20 — wires up
+      the `welcomeMessage` setting that existed since Phase 0 but was never actually used;
+      see CHANGELOG.md
 - [x] Per-key rate limiting (in-process sliding window) + per-key monthly message cap
 
 **Demo:** paste four lines of HTML into an unrelated static site and have it work.

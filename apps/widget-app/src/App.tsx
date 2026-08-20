@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { streamChat, type Citation } from './lib/sse.ts';
+import { fetchWidgetConfig, DEFAULT_WIDGET_CONFIG, type WidgetConfig } from './lib/config.ts';
 import { getOrCreateVisitorId, getStoredSessionId, storeSessionId } from './lib/visitor.ts';
 
 interface Message {
@@ -23,11 +24,23 @@ export function App({ apiUrl, publicKey, parentOrigin, fetchImpl = fetch }: AppP
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
+  const [config, setConfig] = useState<WidgetConfig>(DEFAULT_WIDGET_CONFIG);
   const sessionId = useRef<string | undefined>(getStoredSessionId() ?? undefined);
   const visitorId = useRef(getOrCreateVisitorId());
 
-  async function send() {
-    const question = input.trim();
+  useEffect(() => {
+    let cancelled = false;
+    fetchWidgetConfig({ apiUrl, publicKey, parentOrigin, fetchImpl }).then((loaded) => {
+      if (!cancelled) setConfig(loaded);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- identity of apiUrl/publicKey/fetchImpl is stable for the widget's lifetime
+  }, []);
+
+  async function send(override?: string) {
+    const question = (override ?? input).trim();
     if (!question || busy) return;
 
     setInput('');
@@ -77,7 +90,24 @@ export function App({ apiUrl, publicKey, parentOrigin, fetchImpl = fetch }: AppP
 
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {messages.length === 0 && (
-          <p className="text-gray-500">Ask a question about our documentation.</p>
+          <div>
+            <p className="text-gray-700">{config.welcomeMessage}</p>
+            {config.suggestedQuestions.length > 0 && (
+              <div className="mt-3 flex flex-col items-start gap-2">
+                {config.suggestedQuestions.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    disabled={busy}
+                    className="rounded-full border border-gray-300 px-3 py-1.5 text-left text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    onClick={() => void send(q)}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
         {messages.map((m, i) => (
           <div key={i} className={m.role === 'user' ? 'text-right' : 'text-left'}>

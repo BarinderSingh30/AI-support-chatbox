@@ -5,6 +5,7 @@ import { resolveWidgetContext } from '../../auth/public-guard.ts';
 import { streamAnswer } from '../chat/stream.ts';
 import { checkMonthlyCap } from './monthly-cap.ts';
 import { createRateLimiter } from './rate-limiter.ts';
+import { getWidgetConfig } from './config.ts';
 import type { AnswerDeps } from '../chat/answer.ts';
 
 const askSchema = z.object({
@@ -49,6 +50,28 @@ export function publicChatRoutes(deps: AnswerDeps) {
       reply.header('access-control-allow-methods', 'POST, OPTIONS');
       reply.header('access-control-allow-headers', 'content-type, x-widget-key, x-widget-origin');
       return reply.code(204).send();
+    });
+
+    app.options('/v1/widget/config', async (_req, reply) => {
+      reply.header('access-control-allow-methods', 'GET, OPTIONS');
+      reply.header('access-control-allow-headers', 'x-widget-key, x-widget-origin');
+      return reply.code(204).send();
+    });
+
+    /**
+     * The greeting and suggested-question chips the widget shows before any
+     * message is sent. Deliberately outside the rate limiter and monthly
+     * cap: it's a config read on mount, not a chat message, and must not
+     * compete with a visitor's actual message budget.
+     */
+    app.get('/v1/widget/config', async (req, reply) => {
+      const publicKey = req.headers['x-widget-key'] as string | undefined;
+      const parentOrigin = req.headers['x-widget-origin'] as string | undefined;
+
+      const ctx = await resolveWidgetContext(publicKey, parentOrigin);
+      if (!ctx.ok) return reply.code(ctx.status).send({ error: ctx.error });
+
+      return getWidgetConfig(ctx.orgId);
     });
 
     app.post('/v1/widget/chat', async (req, reply) => {

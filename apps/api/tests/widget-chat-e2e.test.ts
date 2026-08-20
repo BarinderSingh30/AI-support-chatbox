@@ -218,6 +218,40 @@ describe('widget chat over public key auth', () => {
   });
 });
 
+describe('widget config', () => {
+  it('returns the greeting and suggested questions for an allowed origin', async () => {
+    const res = await app.inject({
+      method: 'GET', url: '/v1/widget/config', headers: asWidget(CLIENT_SITE),
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      welcomeMessage: expect.any(String),
+      suggestedQuestions: expect.any(Array),
+    });
+  });
+
+  it('rejects a config request from an origin not on the allowlist', async () => {
+    const res = await app.inject({
+      method: 'GET', url: '/v1/widget/config', headers: asWidget('https://evil.test'),
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('does not count against the widget key rate limit', async () => {
+    // Reading config on mount must not compete with the message budget a
+    // visitor uses to actually talk to the bot.
+    const key = await app.inject({
+      method: 'POST', url: '/v1/widget-keys', headers: asAdmin(),
+      payload: { name: 'config-rate-test', allowedOrigins: [CLIENT_SITE], rateLimitRpm: 1 },
+    });
+    const scopedHeaders = { origin: CLIENT_SITE, 'x-widget-origin': CLIENT_SITE, 'x-widget-key': key.json().publicKey };
+    for (let i = 0; i < 5; i++) {
+      const res = await app.inject({ method: 'GET', url: '/v1/widget/config', headers: scopedHeaders });
+      expect(res.statusCode).toBe(200);
+    }
+  });
+});
+
 describe('widget key management', () => {
   it('requires an admin session', async () => {
     const res = await app.inject({ method: 'GET', url: '/v1/widget-keys' });

@@ -50,6 +50,13 @@
       "when": 1787229145847,
       "tag": "0006_public_key_lookup",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787234805349,
+      "tag": "0007_suggested_questions",
+      "breakpoints": true
     }
   ]
 }

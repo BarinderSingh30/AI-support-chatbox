@@ -22,6 +22,8 @@ const HOST_SITE_PORT = 5700;
 
 const { buildApp } = await import('../apps/api/src/app.ts');
 const { workerPool } = await import('../apps/api/src/modules/ingestion/queue.ts');
+const { withTenant } = await import('../apps/api/src/db/with-tenant.ts');
+const { orgSettings } = await import('../apps/api/src/db/schema/index.ts');
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
 
@@ -81,6 +83,18 @@ await app.inject({
   },
 });
 await worker.drained();
+
+await withTenant(org.json().id, (tx) =>
+  tx.insert(orgSettings).values({
+    orgId: org.json().id,
+    welcomeMessage: "Hi! I'm Acme's support assistant. Ask me anything, or try one of these:",
+    suggestedQuestions: [
+      'How long is the warranty?',
+      'What is your return policy?',
+      'Is shipping free?',
+    ],
+  }),
+);
 
 const key = await app.inject({
   method: 'POST', url: '/v1/widget-keys', headers: h,

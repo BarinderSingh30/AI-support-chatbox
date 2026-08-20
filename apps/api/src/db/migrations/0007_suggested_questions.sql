@@ -1,0 +1,1 @@
+ALTER TABLE "org_settings" ADD COLUMN "suggested_questions" text[] DEFAULT '{}'::text[] NOT NULL;
