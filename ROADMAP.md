@@ -1,13 +1,13 @@
 # Roadmap
 
-**Current phase:** Phase 0 — Foundations
-**Status:** 🟡 In progress (2/8 tasks)
+**Current phase:** Phase 1 — Ingestion Pipeline
+**Status:** ⬜ Not started
 **Last updated:** 2026-08-20
 **Live demo:** not yet deployed — target Phase 6
 
 | Phase | Scope | Status |
 |---|---|---|
-| 0 | Foundations — repo, monorepo, schema, auth, tenancy | 🟡 In progress |
+| 0 | Foundations — repo, monorepo, schema, auth, tenancy | ✅ Done — 2026-08-20 |
 | 1 | Ingestion pipeline — parse, chunk, embed, store | ⬜ Not started |
 | 2 | Retrieval + grounded chat API | ⬜ Not started |
 | 3 | Embeddable widget | ⬜ Not started |
@@ -23,22 +23,25 @@ scope stays visible so the record stays honest)*
 
 ---
 
-## 🟡 Phase 0 — Foundations
+## ✅ Phase 0 — Foundations   `done 2026-08-20`
 
 - [x] Initialize repository
 - [x] `.gitignore`, `README.md`, `ROADMAP.md`
-- [ ] npm workspaces + Turborepo + shared tsconfig
-- [ ] Local Postgres 18 + pgvector (native on Arch); `docker-compose.yml` kept for portability
-- [ ] Drizzle schema + first migration; `pgvector` extension enabled
-- [ ] Better Auth + organization plugin (orgs, members, invitations)
-- [ ] RLS policies on every app table; app role without `BYPASSRLS`
-- [ ] `withTenant()` helper — the only path to the database
-- [ ] Seed script: two demo orgs with deliberately different content
+- [x] npm workspaces + Turborepo + shared tsconfig
+- [x] Local Postgres 18 + pgvector (native on Arch); `docker-compose.yml` kept for portability
+- [x] Drizzle schema + first migration; `pgvector` extension enabled
+- [x] Better Auth + organization plugin (orgs, members, invitations)
+- [x] RLS policies on every app table; app role without `BYPASSRLS`
+- [x] `withTenant()` helper — the only path to the database
+- [x] Seed script: two demo orgs with deliberately different content
 
 **Demo:** sign up → create an org → invite a second user → land on an empty dashboard.
-**Exit criteria:** `npm run test -- tenant-isolation` passes — query as org A, assert org B's
-rows are invisible, and assert a deliberately org-less query returns zero rows.
-**Notes:** write the isolation test *first*. It is the entire multi-tenancy claim.
+**Exit criteria:** `npm test` passes — 5/5 in `tests/tenant-isolation.test.ts`. ✅
+**Verified:** scoped reads return only the caller's rows; a query naming another org returns
+0; an unscoped query returns 0; a cross-tenant INSERT is rejected by Postgres with
+`new row violates row-level security policy`; the app role reports `rolbypassrls = false`.
+**Notes:** `FORCE ROW LEVEL SECURITY` is load-bearing — RLS does not apply to a table's owner
+without it, and migrations run as the owner. See `docs/phases/phase-0-foundations.md`.
 
 ---
 

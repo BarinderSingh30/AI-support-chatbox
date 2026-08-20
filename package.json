@@ -1,0 +1,27 @@
+{
+  "name": "groundwork",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "npm@12.0.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "db:generate": "npm run db:generate -w @groundwork/api",
+    "db:migrate": "npm run db:migrate -w @groundwork/api",
+    "seed": "npm run seed -w @groundwork/api"
+  },
+  "devDependencies": {
+    "turbo": "2.10.11",
+    "typescript": "7.0.2"
+  }
+}
