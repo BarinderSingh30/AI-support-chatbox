@@ -1,0 +1,160 @@
+# Roadmap
+
+**Current phase:** Phase 0 — Foundations
+**Status:** 🟡 In progress (2/8 tasks)
+**Last updated:** 2026-08-20
+**Live demo:** not yet deployed — target Phase 6
+
+| Phase | Scope | Status |
+|---|---|---|
+| 0 | Foundations — repo, monorepo, schema, auth, tenancy | 🟡 In progress |
+| 1 | Ingestion pipeline — parse, chunk, embed, store | ⬜ Not started |
+| 2 | Retrieval + grounded chat API | ⬜ Not started |
+| 3 | Embeddable widget | ⬜ Not started |
+| 4 | Admin dashboard | ⬜ Not started |
+| 5 | Hardening + retrieval evals | ⬜ Not started |
+| 6 | Deploy + case study | ⬜ Not started |
+
+> **Minimum sellable cut: Phases 0–4.** Stopping there still leaves a complete, demonstrable
+> product. Phases 5–6 are what turn a working product into a case study.
+
+**Key:** ✅ done · 🟡 in progress · ⬜ not started · ⏸️ paused · ❌ cut *(with a reason — cut
+scope stays visible so the record stays honest)*
+
+---
+
+## 🟡 Phase 0 — Foundations
+
+- [x] Initialize repository
+- [x] `.gitignore`, `README.md`, `ROADMAP.md`
+- [ ] npm workspaces + Turborepo + shared tsconfig
+- [ ] `docker-compose.yml` — local Postgres with pgvector
+- [ ] Drizzle schema + first migration; `pgvector` extension enabled
+- [ ] Better Auth + organization plugin (orgs, members, invitations)
+- [ ] RLS policies on every app table; app role without `BYPASSRLS`
+- [ ] `withTenant()` helper — the only path to the database
+- [ ] Seed script: two demo orgs with deliberately different content
+
+**Demo:** sign up → create an org → invite a second user → land on an empty dashboard.
+**Exit criteria:** `npm run test -- tenant-isolation` passes — query as org A, assert org B's
+rows are invisible, and assert a deliberately org-less query returns zero rows.
+**Notes:** write the isolation test *first*. It is the entire multi-tenancy claim.
+
+---
+
+## ⬜ Phase 1 — Ingestion Pipeline
+
+- [ ] Upload endpoint — multipart, PDF/txt/md, with size cap
+- [ ] Paste-raw-text path
+- [ ] PDF parsing via `unpdf`; cleanup (dehyphenation, cruft removal)
+- [ ] Heading-aware chunker — ~600 tokens, 15% overlap, `heading_path` retained
+- [ ] Batched embedding — `gemini-embedding-001`, `RETRIEVAL_DOCUMENT`, 768 dims
+- [ ] **L2-normalize every vector** (required at any non-3072 dimension)
+- [ ] Durable job rows with retry + boot-time sweep for stalled work
+- [ ] `content_hash` dedupe so re-uploading a file costs nothing
+- [ ] Live progress bar driven by job status
+
+**Demo:** drag in a 40-page PDF, watch a live progress bar, browse the resulting chunks with
+their heading paths and page numbers.
+**Exit criteria:** `chunk_count > 0`; every embedding has length 768 and L2 norm within 1e-3
+of 1; `heading_path` populated; re-upload of the same file creates no new chunks; killing the
+process mid-ingest and restarting completes the job.
+**Open:** object storage for original files — Cloudflare R2 likely; verify free-tier limits.
+
+---
+
+## ⬜ Phase 2 — Retrieval + Grounded Chat API
+
+- [ ] Query embedding with `task_type=RETRIEVAL_QUERY`
+- [ ] pgvector cosine kNN over an HNSW index
+- [ ] tsvector keyword search
+- [ ] Reciprocal Rank Fusion of both result sets
+- [ ] **Relevance gate** — short-circuit to "I don't know" before any LLM call
+- [ ] Grounding prompt with mandatory `[n]` citations, versioned in its own file
+- [ ] SSE streaming response
+- [ ] Persist messages, citations, tokens, latency, and cost
+
+**Demo:** a scratch HTML page answering questions with sources — *and* a question the docs
+don't cover, refused cleanly.
+**Exit criteria:** expected source document appears in the top 5 for ≥80% of the eval set; an
+out-of-corpus question records `answered = false` with **zero** LLM tokens, proving the gate
+fired before the call rather than after.
+
+---
+
+## ⬜ Phase 3 — Embeddable Widget
+
+- [ ] Vanilla loader script (<5KB) that injects a themed iframe
+- [ ] React chat UI inside the iframe
+- [ ] Streaming token render
+- [ ] Citation chips that expand to show the quoted passage
+- [ ] Public-key auth with exact-match `Origin` allowlist
+- [ ] Per-key and per-IP rate limiting
+
+**Demo:** paste four lines of HTML into an unrelated static site and have it work.
+**Exit criteria:** served from a different port than the API, the widget renders and streams;
+citations expand; an origin absent from the allowlist is rejected with 403; the 21st request
+in a minute is rate-limited.
+
+---
+
+## ⬜ Phase 4 — Admin Dashboard
+
+- [ ] Document library — status, size, chunk count, re-embed, delete
+- [ ] Conversation browser with full transcripts and the citations each answer used
+- [ ] Analytics — messages over time, answer rate, spend by day
+- [ ] **Top unanswered questions**, mined from low-`top_score` messages
+- [ ] Widget configurator with live preview
+- [ ] Widget key management — create, revoke, set allowed origins and caps
+
+**Demo:** the full loop — upload a document, chat from the widget, watch the conversation and
+its cost appear in the dashboard.
+**Exit criteria:** dashboard message count, answer rate, and cost figures match the
+`usage_events` rows for the same window.
+
+---
+
+## ⬜ Phase 5 — Hardening + Evals
+
+- [ ] Retrieval eval set (~30 question/expected-source pairs)
+- [ ] `npm run eval` printing a hit-rate@k scorecard
+- [ ] Per-org monthly spend caps enforced before dispatch
+- [ ] Structured logging
+- [ ] Integration tests: tenancy boundary, "I don't know" path, prompt-injection resistance
+- [ ] CI: typecheck, lint, test, and a lint rule forbidding direct DB imports outside
+      `with-tenant.ts`
+
+**Demo:** `npm run eval` printing a retrieval scorecard.
+**Exit criteria:** scorecard runs in CI; exceeding a test org's monthly cap refuses requests
+with a clear error rather than silently charging.
+**Open:** whether to add a reranker — decide from the scorecard, not in advance.
+
+---
+
+## ⬜ Phase 6 — Deploy + Case Study
+
+- [ ] Dashboard, widget, and landing page to Vercel
+- [ ] API to Render free tier
+- [ ] GitHub Actions cron keeping the API warm (744h/mo fits the 750h allowance)
+- [ ] Neon production database + migrations
+- [ ] Public demo org preloaded with a fictional company's docs, one-click entry
+- [ ] Landing page with a live embedded widget
+- [ ] Case study write-up
+
+**Demo:** the URL that goes on the Upwork profile.
+**Exit criteria:** from a machine that has never hit the demo, a cold load completes a
+conversation in under 5 seconds to first token.
+
+---
+
+## Phase gate ritual
+
+A phase is not done when the tests pass. It is done when this file says so. At every gate:
+
+1. Tick the phase's boxes; flip its heading to ✅ and stamp the completion date.
+2. Update the banner — current phase, status, `Last updated` — and the summary table row.
+3. Add a `CHANGELOG.md` entry in language a non-engineer could follow.
+4. Write closing notes in `docs/phases/phase-N-*.md` — surprises, deferrals, new ADRs.
+5. Move anything discovered-but-undone into the **next** phase's checklist. Scope that
+   quietly evaporates is exactly what this file exists to catch.
+6. Commit.

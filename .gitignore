@@ -1,0 +1,41 @@
+# ── Secrets ───────────────────────────────────────────────────────────────────
+# Everything except the documented template. Getting this right in the first
+# commit matters more than it looks: an API key in git history is not something
+# you want to find on a repo you're linking from a portfolio.
+.env
+.env.*
+!.env.example
+
+# ── Dependencies ──────────────────────────────────────────────────────────────
+node_modules/
+.npm/
+*.tgz
+
+# ── Build output ──────────────────────────────────────────────────────────────
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# ── Tooling caches ────────────────────────────────────────────────────────────
+.turbo/
+.vite/
+.cache/
+coverage/
+*.log
+npm-debug.log*
+
+# ── Runtime scratch ───────────────────────────────────────────────────────────
+# Uploaded documents while running locally; the real ones live in object storage.
+uploads/
+tmp/
+
+# ── Local database ────────────────────────────────────────────────────────────
+pgdata/
+
+# ── Editor / OS ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
