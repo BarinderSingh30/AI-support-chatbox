@@ -12,6 +12,11 @@ export const orgSettings = pgTable('org_settings', {
   theme: jsonb('theme'),
   // The relevance gate: below this best-score, we answer "I don't know"
   // without calling the LLM at all.
-  minScore: real('min_score').notNull().default(0.35),
+  //
+  // 0.65 is measured, not guessed. With gemini-embedding-001 at 768 dimensions,
+  // unrelated queries against a support corpus score 0.53-0.58 — the floor is
+  // nowhere near zero — while genuinely on-topic queries score 0.72-0.79. A
+  // lower threshold (the 0.35 this started at) can never fire.
+  minScore: real('min_score').notNull().default(0.65),
   topK: integer('top_k').notNull().default(6),
 });

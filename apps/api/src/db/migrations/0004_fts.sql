@@ -1,0 +1,2 @@
+ALTER TABLE "document_chunks" ADD COLUMN "fts" "tsvector" GENERATED ALWAYS AS (to_tsvector('english', coalesce(heading_path, '') || ' ' || content)) STORED;--> statement-breakpoint
+CREATE INDEX "chunks_fts_gin_idx" ON "document_chunks" USING gin ("fts");

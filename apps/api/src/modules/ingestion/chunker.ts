@@ -119,6 +119,11 @@ export function chunkDocument(text: string, options: ChunkOptions = {}): Chunk[]
   let previousTail = '';
 
   for (const section of toSections(text)) {
+    // Overlap never crosses a heading. It exists to rescue a fact split by the
+    // token budget inside one section; bleeding a section into the next one
+    // mislabels the chunk's heading, and headings are what citations show.
+    previousTail = '';
+
     const units: Unit[] = section.units.flatMap((u) => {
       if (estimateTokens(u.text) <= maxTokens) return [u];
       // Sub-units keep the parent's offset as a floor; exact enough for pages.
@@ -161,13 +166,23 @@ export function chunkDocument(text: string, options: ChunkOptions = {}): Chunk[]
   return chunks;
 }
 
-/** Trailing words of a chunk, roughly `tokens` worth, used as the next overlap. */
+/**
+ * Trailing words of a chunk, roughly `tokens` worth, used as the next overlap.
+ *
+ * Capped at half the chunk: when the overlap budget exceeds the chunk's own
+ * length — small sections against a large maxTokens — an uncapped tail returns
+ * the entire chunk, so the next one duplicates it wholesale. That doubles
+ * storage and embedding spend and makes retrieval return near-identical hits.
+ */
 function tailWords(text: string, tokens: number): string {
   const words = text.split(/\s+/);
+  const budget = Math.min(tokens, Math.floor(estimateTokens(text) / 2));
+  if (budget <= 0) return '';
+
   const out: string[] = [];
   for (let i = words.length - 1; i >= 0; i--) {
     out.unshift(words[i]!);
-    if (estimateTokens(out.join(' ')) >= tokens) break;
+    if (estimateTokens(out.join(' ')) >= budget) break;
   }
   return out.join(' ');
 }

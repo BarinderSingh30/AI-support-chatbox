@@ -9,7 +9,7 @@
 |---|---|---|
 | 0 | Foundations — repo, monorepo, schema, auth, tenancy | ✅ Done — 2026-08-20 |
 | 1 | Ingestion pipeline — parse, chunk, embed, store | ✅ Done — 2026-08-20 |
-| 2 | Retrieval + grounded chat API | 🟡 In progress |
+| 2 | Retrieval + grounded chat API | ✅ Done — 2026-08-20 |
 | 3 | Embeddable widget | ⬜ Not started |
 | 4 | Admin dashboard | ⬜ Not started |
 | 5 | Hardening + retrieval evals | ⬜ Not started |
@@ -73,16 +73,16 @@ re-chunking works, but the original PDF is not retained. Cloudflare R2 in a late
 
 ---
 
-## 🟡 Phase 2 — Retrieval + Grounded Chat API
+## ✅ Phase 2 — Retrieval + Grounded Chat API   `done 2026-08-20`
 
-- [ ] Query embedding with `task_type=RETRIEVAL_QUERY`
-- [ ] pgvector cosine kNN over an HNSW index
-- [ ] tsvector keyword search
-- [ ] Reciprocal Rank Fusion of both result sets
-- [ ] **Relevance gate** — short-circuit to "I don't know" before any LLM call
-- [ ] Grounding prompt with mandatory `[n]` citations, versioned in its own file
-- [ ] SSE streaming response
-- [ ] Persist messages, citations, tokens, latency, and cost
+- [x] Query embedding with `task_type=RETRIEVAL_QUERY`
+- [x] pgvector cosine kNN over an HNSW index
+- [x] tsvector keyword search
+- [x] Reciprocal Rank Fusion of both result sets
+- [x] **Relevance gate** — short-circuit to "I don't know" before any LLM call
+- [x] Grounding prompt with mandatory `[n]` citations, versioned in its own file
+- [x] SSE streaming response
+- [x] Persist messages, citations, tokens, latency, and cost
 
 **Demo:** a scratch HTML page answering questions with sources — *and* a question the docs
 don't cover, refused cleanly.

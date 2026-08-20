@@ -1,8 +1,13 @@
 import {
-  pgTable, text, integer, timestamp, index, uniqueIndex, vector, jsonb,
+  pgTable, text, integer, timestamp, index, uniqueIndex, vector, jsonb, customType,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { organization } from './auth.ts';
+
+/** Postgres full-text search vector; Drizzle has no first-class tsvector type. */
+const tsvector = customType<{ data: string; driverData: string }>({
+  dataType: () => 'tsvector',
+});
 
 const orgId = () =>
   text('org_id').notNull().references(() => organization.id, { onDelete: 'cascade' });
@@ -57,10 +62,18 @@ export const documentChunks = pgTable(
     // 768, not the model default of 3072: pgvector's HNSW index caps `vector`
     // at 2000 dimensions. Values are L2-normalized at write time.
     embedding: vector('embedding', { dimensions: 768 }),
+    // Keyword half of hybrid search. Vectors are fuzzy by nature and lose exact
+    // tokens — error codes, SKUs, product names — which is precisely what
+    // support questions are full of. The heading is included so a section title
+    // is matchable even when the body never repeats it.
+    fts: tsvector('fts').generatedAlwaysAs(
+      sql`to_tsvector('english', coalesce(heading_path, '') || ' ' || content)`,
+    ),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index('chunks_embedding_hnsw_idx').using('hnsw', t.embedding.op('vector_cosine_ops')),
+    index('chunks_fts_gin_idx').using('gin', t.fts),
     index('chunks_doc_idx').on(t.orgId, t.documentId, t.chunkIndex),
   ],
 );

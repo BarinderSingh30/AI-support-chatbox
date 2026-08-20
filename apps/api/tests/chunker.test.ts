@@ -56,6 +56,30 @@ describe('chunkDocument', () => {
     expect(second).toContain(tail);
   });
 
+  it('does not carry overlap across a heading boundary', () => {
+    // Overlap exists to save a fact split by the token budget mid-section.
+    // Bleeding one section into the next mislabels the chunk's heading, which
+    // is what citations are rendered from — a citation that names the wrong
+    // section is worse than no citation.
+    const text = [
+      '# Warranty', 'Warranty text about coverage and duration.',
+      '# Shipping', 'Shipping text about delivery and cost.',
+    ].join('\n\n');
+    const chunks = chunkDocument(text);
+    const shipping = chunks.find((c) => c.headingPath === 'Shipping');
+    expect(shipping?.content).not.toContain('Warranty text');
+  });
+
+  it('caps overlap so a short chunk is never duplicated wholesale', () => {
+    // With a large overlap budget and small paragraphs, a naive tail-grab
+    // returns the entire previous chunk and doubles both storage and cost.
+    const text = Array.from({ length: 8 }, (_, i) => `Paragraph ${i} is quite short.`).join('\n\n');
+    const chunks = chunkDocument(text, { maxTokens: 12, overlapRatio: 0.9 });
+    for (let i = 1; i < chunks.length; i++) {
+      expect(chunks[i]!.content).not.toContain(chunks[i - 1]!.content);
+    }
+  });
+
   it('never emits empty or whitespace-only chunks', () => {
     const chunks = chunkDocument('# A\n\n\n\n## B\n\n\n\nreal content here\n\n\n');
     expect(chunks.length).toBeGreaterThan(0);

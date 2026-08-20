@@ -35,3 +35,19 @@ Documents go in; searchable, embedded chunks come out.
   derived from it.
 - Verified end to end against the live Gemini API: a 24-page handbook is ingested in about a
   second, and every stored vector is correctly sized and normalized.
+
+## Phase 2 — Retrieval & Grounded Chat · 2026-08-20
+
+Questions in, cited answers out — or an honest "I don't know".
+
+- Hybrid retrieval: semantic search and keyword search run together and their results are
+  fused, so the system handles both "how long am I covered?" and "what is SKU-4471?".
+- Answers cite the exact passage they came from, with document name, section, and page.
+- **Questions the documentation cannot answer are refused without calling the language model
+  at all.** Those requests cost nothing and cannot hallucinate, because the model never sees
+  them. Verified: an out-of-scope question returns in under a second for $0.00.
+- An answer that cites nothing is treated as a refusal, however fluent it reads.
+- Text from uploaded documents is fenced off in the prompt and explicitly marked untrusted, so
+  a document containing "ignore your instructions" cannot hijack the assistant.
+- Answers stream token by token rather than appearing all at once.
+- Every exchange records its tokens, latency, and cost. A typical answer costs about $0.0003.
