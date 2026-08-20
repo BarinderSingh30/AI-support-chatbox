@@ -38,6 +38,19 @@ describe('mountWidget', () => {
     expect(src.searchParams.get('api')).toBe('https://api.acme.test');
   });
 
+  it('passes the embedding page\'s own origin to the iframe', () => {
+    // The chat iframe is hosted at ITS OWN origin, so any fetch it makes
+    // reports that origin via the browser's Origin header — never the parent
+    // page's. The loader is the only place that genuinely runs in the parent
+    // page's context, so it is the only place that can correctly capture and
+    // forward it.
+    const handle = mountWidget(config, document);
+    handle.open();
+    const iframe = handle.host.shadowRoot!.querySelector('iframe') as HTMLIFrameElement;
+    const src = new URL(iframe.src);
+    expect(src.searchParams.get('origin')).toBe(document.location.origin);
+  });
+
   it('reuses the same iframe across repeated opens rather than recreating it', () => {
     const handle = mountWidget(config, document);
     handle.open();

@@ -12,11 +12,13 @@ interface Message {
 export interface AppProps {
   apiUrl: string;
   publicKey: string;
+  /** The embedding page's real origin, captured by the loader script. */
+  parentOrigin?: string;
   /** Injected so tests never hit a real network. */
   fetchImpl?: typeof fetch;
 }
 
-export function App({ apiUrl, publicKey, fetchImpl = fetch }: AppProps) {
+export function App({ apiUrl, publicKey, parentOrigin, fetchImpl = fetch }: AppProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -39,7 +41,7 @@ export function App({ apiUrl, publicKey, fetchImpl = fetch }: AppProps) {
     });
 
     await streamChat({
-      apiUrl, publicKey, question,
+      apiUrl, publicKey, question, parentOrigin,
       sessionId: sessionId.current,
       visitorId: visitorId.current,
       fetchImpl,

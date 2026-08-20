@@ -26,6 +26,7 @@ describe('streamChat', () => {
     const fetchMock = vi.fn().mockResolvedValue(sseResponse(SSE_BODY));
     await streamChat({
       apiUrl: 'https://api.acme.test', publicKey: 'pk_live_x', question: 'How long?',
+      parentOrigin: 'https://client-site.test',
       fetchImpl: fetchMock, onEvent: () => {},
     });
     const [url, init] = fetchMock.mock.calls[0]!;
@@ -33,6 +34,20 @@ describe('streamChat', () => {
     expect(init.method).toBe('POST');
     expect(init.headers['x-widget-key']).toBe('pk_live_x');
     expect(JSON.parse(init.body).question).toBe('How long?');
+  });
+
+  it("sends the embedding page's real origin as a custom header, not the browser Origin header", async () => {
+    // The iframe's own fetch always carries ITS OWN origin via the browser's
+    // automatic Origin header — never the parent page's — so the value the
+    // loader captured has to travel as an explicit header instead.
+    const fetchMock = vi.fn().mockResolvedValue(sseResponse(SSE_BODY));
+    await streamChat({
+      apiUrl: 'https://api.acme.test', publicKey: 'pk_live_x', question: 'q',
+      parentOrigin: 'https://client-site.test',
+      fetchImpl: fetchMock, onEvent: () => {},
+    });
+    const [, init] = fetchMock.mock.calls[0]!;
+    expect(init.headers['x-widget-origin']).toBe('https://client-site.test');
   });
 
   it('emits token events in order as they arrive', async () => {

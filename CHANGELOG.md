@@ -68,7 +68,10 @@ on the client's part.
   monthly message cap enforced before a request reaches the model.
 - Widget keys are managed through an admin API: create, list, and revoke, each scoped to the
   organization that owns them.
-- Verified against a real running server with the actual production build — not just
-  component tests: a fresh page load runs the real bundle, asks a real question, gets a real
-  streamed answer with a real citation, and a request from a domain not on the allowlist is
-  refused end to end.
+- Verified against a real running server with the actual production build, and then — after
+  installing a browser specifically for this — against a real Chromium click-through: open on
+  an unrelated page, ask a real question, get a live Gemini answer with a working citation.
+  That browser test caught two real defects no automated check had (an iframe cannot report
+  its parent page's origin via the browser's `Origin` header, and a raw response-writing call
+  was silently dropping CORS headers on the actual streamed reply); both are now fixed and
+  covered by regression tests. Full story in `docs/phases/phase-3-widget.md`.

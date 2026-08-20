@@ -47,15 +47,21 @@ export function publicChatRoutes(deps: AnswerDeps) {
     // that plugin, so OPTIONS needs its own registration to be reachable at all.
     app.options('/v1/widget/chat', async (_req, reply) => {
       reply.header('access-control-allow-methods', 'POST, OPTIONS');
-      reply.header('access-control-allow-headers', 'content-type, x-widget-key');
+      reply.header('access-control-allow-headers', 'content-type, x-widget-key, x-widget-origin');
       return reply.code(204).send();
     });
 
     app.post('/v1/widget/chat', async (req, reply) => {
       const publicKey = req.headers['x-widget-key'] as string | undefined;
-      const origin = req.headers.origin;
+      // NOT req.headers.origin: the chat iframe is hosted at its own origin,
+      // so the browser's automatic Origin header on its own fetch always
+      // reports THAT origin — never the embedding page's. x-widget-origin is
+      // captured by the loader script, which runs directly in the real
+      // parent page and genuinely has access to its origin. See
+      // docs/phases/phase-3-widget.md for how this was found.
+      const parentOrigin = req.headers['x-widget-origin'] as string | undefined;
 
-      const ctx = await resolveWidgetContext(publicKey, origin);
+      const ctx = await resolveWidgetContext(publicKey, parentOrigin);
       if (!ctx.ok) return reply.code(ctx.status).send({ error: ctx.error });
 
       if (!rateLimiter.tryConsume(ctx.widgetKeyId, ctx.rateLimitRpm)) {
@@ -76,7 +82,7 @@ export function publicChatRoutes(deps: AnswerDeps) {
         // A visitor with no prior session gets one generated client-side by the
         // widget and persisted in localStorage; this is a fallback only.
         visitorId: body.data.visitorId ?? randomUUID(),
-        origin,
+        origin: parentOrigin,
         userAgent: req.headers['user-agent'],
         deps,
       });

@@ -56,6 +56,12 @@ export function mountWidget(config: WidgetConfig, doc: Document): WidgetHandle {
     const src = new URL(config.widgetUrl);
     src.searchParams.set('key', config.publicKey);
     src.searchParams.set('api', config.apiUrl);
+    // The iframe is hosted at ITS OWN origin, so any fetch it makes reports
+    // that origin — never the parent page's — via the browser's Origin
+    // header. This script runs directly in the parent page, which is the
+    // only place `doc.location.origin` genuinely reflects the embedding
+    // site, so it is captured here and forwarded explicitly.
+    src.searchParams.set('origin', doc.location.origin);
     iframe = doc.createElement('iframe');
     iframe.src = src.toString();
     iframe.title = 'Support chat';

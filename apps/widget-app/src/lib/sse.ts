@@ -18,6 +18,13 @@ export interface StreamChatInput {
   question: string;
   sessionId?: string;
   visitorId?: string;
+  /**
+   * The embedding page's real origin, captured by the loader script (which
+   * runs directly in that page's context) and forwarded here. The browser's
+   * own Origin header on this fetch always reports the CHAT IFRAME's origin
+   * instead — never the parent page's — so it cannot be used for this.
+   */
+  parentOrigin?: string;
   fetchImpl: typeof fetch;
   onEvent: (event: ChatEvent) => void;
 }
@@ -78,13 +85,17 @@ async function consumeSseBody(response: Response, onEvent: (e: ChatEvent) => voi
  * onEvent handler in the UI covers every outcome.
  */
 export async function streamChat(input: StreamChatInput): Promise<void> {
-  const { apiUrl, publicKey, question, sessionId, visitorId, fetchImpl, onEvent } = input;
+  const { apiUrl, publicKey, question, sessionId, visitorId, parentOrigin, fetchImpl, onEvent } = input;
 
   let response: Response;
   try {
     response = await fetchImpl(`${apiUrl}/v1/widget/chat`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-widget-key': publicKey },
+      headers: {
+        'content-type': 'application/json',
+        'x-widget-key': publicKey,
+        ...(parentOrigin ? { 'x-widget-origin': parentOrigin } : {}),
+      },
       body: JSON.stringify({ question, sessionId, visitorId }),
     });
   } catch {

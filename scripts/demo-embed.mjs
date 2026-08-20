@@ -27,13 +27,23 @@ const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css
 
 function serveDirs(dirs, port, transform) {
   const server = createServer(async (req, res) => {
-    const path = req.url === '/' ? '/index.html' : req.url.split('?')[0];
+    // A plain string split on '?' only special-cases the exact literal '/',
+    // so a request with a query string (exactly what an iframe src="...?key=..."
+    // produces) fell through to reading the directory itself and 404'd.
+    let path = new URL(req.url, `http://${req.headers.host}`).pathname;
+    if (path === '/') path = '/index.html';
     for (const dir of dirs) {
       try {
         await access(join(dir, path));
         let body = await readFile(join(dir, path));
         if (transform && extname(path) === '.html') body = Buffer.from(transform(body.toString()));
-        res.writeHead(200, { 'content-type': MIME[extname(path)] ?? 'application/octet-stream' });
+        res.writeHead(200, {
+          'content-type': MIME[extname(path)] ?? 'application/octet-stream',
+          // No caching: this server restarts with fresh org/doc/key data every
+          // run, and a browser serving a stale cached page would embed a
+          // widget key from a previous run that no longer exists.
+          'cache-control': 'no-store',
+        });
         return res.end(body);
       } catch { /* try next dir */ }
     }
@@ -44,7 +54,7 @@ function serveDirs(dirs, port, transform) {
 }
 
 console.log('booting API (live Gemini)...');
-const { app, worker } = await buildApp({ logger: false });
+const { app, worker } = await buildApp({});
 await app.listen({ port: API_PORT, host: '127.0.0.1' });
 
 const email = `demo-embed-${randomUUID()}@example.com`;

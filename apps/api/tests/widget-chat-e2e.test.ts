@@ -35,7 +35,7 @@ const chat: ChatProvider = {
 };
 
 const asAdmin = () => ({ cookie: adminCookie, origin: APP_ORIGIN });
-const asWidget = (origin: string) => ({ origin, 'x-widget-key': publicKey });
+const asWidget = (origin: string) => ({ origin, 'x-widget-origin': origin, 'x-widget-key': publicKey });
 
 function parseSse(body: string) {
   return body.split('\n\n').filter(Boolean).map((block) => ({
@@ -86,6 +86,25 @@ afterAll(async () => {
 });
 
 describe('widget chat over public key auth', () => {
+  it(
+    'carries the CORS header on the actual streamed response, not just the preflight',
+    async () => {
+      // streamAnswer writes response headers directly via reply.raw.writeHead(),
+      // which bypasses (and previously discarded) anything Fastify's own
+      // reply.header() had already queued from the onRequest hook. A preflight
+      // OPTIONS request going through Fastify's normal pipeline would still
+      // pass even with this bug, which is exactly why it wasn't caught until a
+      // real browser tried to read the actual POST response and rejected the
+      // fetch outright. See docs/phases/phase-3-widget.md.
+      const res = await app.inject({
+        method: 'POST', url: '/v1/widget/chat',
+        headers: asWidget(CLIENT_SITE),
+        payload: { question: 'How long do refunds take?' },
+      });
+      expect(res.headers['access-control-allow-origin']).toBe(CLIENT_SITE);
+    },
+  );
+
   it('answers a visitor from an allowed origin with no session at all', async () => {
     const res = await app.inject({
       method: 'POST', url: '/v1/widget/chat',
@@ -98,6 +117,27 @@ describe('widget chat over public key auth', () => {
     expect(text).toContain('14 days');
     expect(events.find((e) => e.event === 'done')!.data.answered).toBe(true);
   });
+
+  it(
+    'checks the allowlist against x-widget-origin, not the raw browser Origin header',
+    async () => {
+      // The chat iframe is hosted at ITS OWN origin, so the browser's automatic
+      // Origin header on its fetch NEVER matches a client site's allowlisted
+      // domain — that is structurally guaranteed, not a bug in one deployment.
+      // The loader captures the real embedding page's origin and forwards it
+      // as x-widget-origin instead; that is what must drive the decision.
+      const res = await app.inject({
+        method: 'POST', url: '/v1/widget/chat',
+        headers: {
+          origin: 'https://widget-hosting-domain.example', // the iframe's own, structurally irrelevant, origin
+          'x-widget-origin': CLIENT_SITE, // what the loader actually captured
+          'x-widget-key': publicKey,
+        },
+        payload: { question: 'How long do refunds take?' },
+      });
+      expect(res.statusCode).toBe(200);
+    },
+  );
 
   it('rejects a request from an origin not on the allowlist', async () => {
     const res = await app.inject({
@@ -142,7 +182,7 @@ describe('widget chat over public key auth', () => {
       method: 'POST', url: '/v1/widget-keys', headers: asAdmin(),
       payload: { name: 'rate-limit-test', allowedOrigins: [CLIENT_SITE], rateLimitRpm: 3 },
     });
-    const scopedHeaders = { origin: CLIENT_SITE, 'x-widget-key': key.json().publicKey };
+    const scopedHeaders = { origin: CLIENT_SITE, 'x-widget-origin': CLIENT_SITE, 'x-widget-key': key.json().publicKey };
 
     for (let i = 0; i < 3; i++) {
       const ok = await app.inject({
@@ -161,7 +201,7 @@ describe('widget chat over public key auth', () => {
       method: 'POST', url: '/v1/widget-keys', headers: asAdmin(),
       payload: { name: 'session-test', allowedOrigins: [CLIENT_SITE] },
     });
-    const scopedHeaders = { origin: CLIENT_SITE, 'x-widget-key': key.json().publicKey };
+    const scopedHeaders = { origin: CLIENT_SITE, 'x-widget-origin': CLIENT_SITE, 'x-widget-key': key.json().publicKey };
 
     const first = await app.inject({
       method: 'POST', url: '/v1/widget/chat',

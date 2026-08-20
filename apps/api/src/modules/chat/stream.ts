@@ -1,3 +1,4 @@
+import type { OutgoingHttpHeaders } from 'node:http';
 import type { FastifyReply } from 'fastify';
 import type { AnswerInput, AnswerResult } from './answer.ts';
 import { answerQuestion } from './answer.ts';
@@ -14,7 +15,23 @@ export async function streamAnswer(
   reply: FastifyReply,
   input: AnswerInput,
 ): Promise<AnswerResult | null> {
+  // reply.raw.writeHead() writes directly to the raw Node response and
+  // completely discards anything queued via Fastify's own reply.header() —
+  // including CORS headers set by an onRequest hook upstream (both the
+  // public widget route's own hook and @fastify/cors on the session route).
+  // Without carrying those over, a preflight OPTIONS request passes (it goes
+  // through Fastify's normal reply pipeline) while the actual streamed
+  // response silently ships with no Access-Control-Allow-Origin — a real
+  // browser rejects the fetch outright, but curl and any tool that doesn't
+  // enforce CORS won't show anything wrong. Caught only by an actual browser
+  // click; see docs/phases/phase-3-widget.md.
+  const upstreamHeaders: OutgoingHttpHeaders = {};
+  for (const [key, value] of Object.entries(reply.getHeaders())) {
+    if (value !== undefined) upstreamHeaders[key] = String(value);
+  }
+
   reply.raw.writeHead(200, {
+    ...upstreamHeaders,
     'content-type': 'text/event-stream',
     'cache-control': 'no-cache, no-transform',
     connection: 'keep-alive',

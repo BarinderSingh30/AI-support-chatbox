@@ -61,24 +61,84 @@ the frontend change was a rendering toggle, not a new round trip.
   script — everything else about each request (method, the `x-widget-key` header, the body)
   is constructed by the real app code and sent for real.
 
+## Two bugs a real browser found that nothing else did
+
+Barinder installed Chromium and the Claude in Chrome extension specifically to close the
+verification gap below, and it found two real defects in the first two minutes of clicking —
+both invisible to 184 passing tests, two rounds of jsdom verification, and direct curl checks.
+Worth recording in full, because the pattern (automated checks constructing requests by hand
+instead of exercising the real code path) is exactly what to watch for next time.
+
+**1. An iframe's own outgoing fetch cannot report its parent page's origin.**
+
+The click-through immediately hit "origin not allowed" on every message, despite the widget
+key's allowlist being correct. Root cause: the chat UI runs inside an iframe hosted at its
+*own* origin. When that iframe's JS calls `fetch()`, the browser's automatic `Origin` header
+reports the iframe's own hosting origin — never the parent page's — because that is simply
+what the header means. As designed, the origin-allowlist check compared this against
+`allowedOrigins`, which is supposed to represent *which client site embeds the widget*. Those
+two things can never be the same value in any real deployment: every customer's iframe would
+report the identical origin (Groundwork's own widget-hosting domain), so the allowlist could
+never distinguish one client from another. This would have shipped completely non-functional.
+
+Fix: the **loader script** runs directly in the parent page's own JS context (a plain
+`<script>` tag, not inside an iframe), so `window.location.origin` there genuinely is the real
+embedding page's origin. It now captures that and forwards it through the iframe's `src` as an
+`origin` query param; the widget app reads it and sends it as a custom `x-widget-origin`
+header, which the server checks instead of the structurally-wrong `Origin` header. The real
+`Origin` header is still used for its correct purpose — CORS response reflection.
+
+**2. `reply.raw.writeHead()` silently discards Fastify's own queued headers.**
+
+Fixing bug #1 exposed a second one immediately: the widget correctly resolved its origin now,
+but every message failed with "Could not connect" — the browser's `fetch()` promise itself
+was rejecting. `curl` against the identical request succeeded every time, which was the
+tell: this was a browser-enforced CORS rejection, not a real server failure. Root cause:
+`streamAnswer` (`chat/stream.ts`) calls `reply.raw.writeHead(200, {...})` to start the SSE
+response — a raw Node call that bypasses Fastify's reply pipeline entirely and **discards**
+whatever headers were queued via `reply.header()` upstream, including the CORS headers set by
+each route's own `onRequest` hook. A CORS preflight (OPTIONS) passes fine, because it goes
+through Fastify's normal reply mechanism — the bug only affects the actual streamed response,
+which is precisely why neither curl nor the OPTIONS-only parts of the test suite caught it.
+Fixed by explicitly carrying `reply.getHeaders()` into the `writeHead()` call. This bug
+affected `/v1/chat` too (the session-authenticated route), not just the widget — any
+cross-origin caller, including Phase 4's dashboard, would have hit the same silent failure.
+
+**Why the automated checks missed both.** `verify-widget-e2e.mjs` originally granted a widget
+key's allowlist entry to the *same port it fetched the bundle from* — conflating "where the
+widget is hosted" with "which site embeds it," the exact same category error as bug #1, so the
+script's own request pattern could never have exercised the real one. It has since been
+rewritten so the widget bundle always loads from one fixed hosting origin while the simulated
+parent origin is an unrelated string never actually served from — matching production
+topology. Both bugs now have regression tests: `widget.test.ts` asserts the loader forwards
+`doc.location.origin`; `widget-chat-e2e.test.ts` asserts the allowlist decision is driven by
+`x-widget-origin` even when the raw `Origin` header is deliberately wrong, and separately
+asserts the CORS header is present on the *actual* streamed response, not just the preflight.
+
 ## Verification
 
-No browser binary is available in this environment (`~/.cache/ms-playwright` doesn't exist,
-no system Chromium). Rather than skip visual verification silently, this phase used three
-layers instead, in increasing order of realism:
+No browser binary was available for most of this phase (`~/.cache/ms-playwright` doesn't
+exist, no system Chromium). Three layers were used, in increasing order of realism:
 
-1. **Unit and DOM tests** (34 tests across the loader and widget-app) — jsdom, real DOM APIs,
-   only the network call faked.
+1. **Unit and DOM tests** (184 across the monorepo) — jsdom, real DOM APIs, only the network
+   call faked.
 2. **`scripts/verify-widget-e2e.mjs`** — loads the actual `vite build` output fresh in a DOM
-   environment via real script execution, and drives it against a real running API server
-   (Fastify, real Postgres, injected chat/embedder for speed and determinism). Confirms: the
-   production bundle boots from cold, a question streams to a real answer, a citation expands
-   to its real excerpt on click, and a non-allowlisted origin is refused end to end. Rerun
-   twice to rule out a fluke; both runs passed cleanly with no hanging processes.
-3. **`scripts/demo-embed.mjs`** — boots the real stack against live Gemini and serves
-   `apps/widget-loader/demo/test-host.html`, an unrelated-looking static page, for a human to
-   open in an actual browser and click through. This closes the one gap the first two layers
-   cannot: nothing here has been *seen* rendering correctly. Owed to Barinder as a manual step.
+   environment via real script execution, against a real running API server. Confirms the
+   production bundle boots cold, a question streams to a real answer, a citation expands to
+   its real excerpt on click, and a non-allowlisted origin is refused end to end.
+3. **A real browser, driven live.** Barinder installed Chromium and the Claude in Chrome
+   extension mid-phase specifically to close the gap layers 1–2 cannot: nothing had actually
+   been *seen* rendering correctly. It immediately found the two bugs documented above. After
+   both fixes, a full click-through — open launcher, type a question, get a live Gemini answer
+   with a citation, click the citation to reveal the real quoted excerpt — was verified with a
+   live server, live Postgres, and live Gemini, and the browser's own console and network
+   inspector confirmed zero errors and a correct CORS-headered response.
+
+The lesson this phase leaves for the rest of the project: a verification script that hand-
+constructs requests instead of driving the real code path can pass while the real thing is
+broken. Prefer exercising the actual client (real click, real fetch call site) over rebuilding
+an equivalent request by hand, and when that's not possible, keep the two deliberately close
+and note the gap explicitly, as the rewritten `verify-widget-e2e.mjs` now does.
 
 ## Deferred
 
@@ -87,4 +147,3 @@ layers instead, in increasing order of realism:
   real complexity (proxy trust, shared-NAT false positives) that isn't earning its cost yet.
 - Multiple widget themes/positions — the launcher is currently fixed bottom-right with one
   color scheme. Configurable in Phase 4's dashboard.
-- A real browser click-through, per the verification section above.

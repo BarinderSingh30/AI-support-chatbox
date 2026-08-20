@@ -22,9 +22,14 @@ import { JSDOM } from 'jsdom';
 import { eq } from 'drizzle-orm';
 
 const API_PORT = 3901;
+// The ONE real origin the widget bundle is actually hosted at — analogous to
+// wherever Groundwork would serve the widget app from in production. Client
+// sites below are simulated values only; they are never actually served from,
+// which is the whole point: the widget bundle always loads from here
+// regardless of which page embeds it.
 const WIDGET_PORT = 5701;
-const OTHER_SITE_PORT = 5702; // serves the SAME widget-app build, standing in for an unrelated site the key was never issued for
-const ALLOWED_ORIGIN = `http://127.0.0.1:${WIDGET_PORT}`;
+const CLIENT_SITE_ORIGIN = 'https://client-site.example';
+const OTHER_SITE_ORIGIN = 'https://unrelated-site.example';
 
 const { buildApp } = await import('../apps/api/src/app.ts');
 const { db, pool } = await import('../apps/api/src/db/client.ts');
@@ -37,7 +42,11 @@ const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css
 
 function serveStatic(rootDir, port) {
   const server = createServer(async (req, res) => {
-    const path = req.url === '/' ? '/index.html' : req.url.split('?')[0];
+    // A plain string split on '?' only special-cases the exact literal '/',
+    // so a request with a query string (exactly what an iframe src="...?key=..."
+    // produces) fell through to reading the directory itself and 404'd.
+    let path = new URL(req.url, `http://${req.headers.host}`).pathname;
+    if (path === '/') path = '/index.html';
     try {
       const body = await readFile(join(rootDir, path));
       res.writeHead(200, { 'content-type': MIME[extname(path)] ?? 'application/octet-stream' });
@@ -96,31 +105,43 @@ await worker.drained();
 
 const keyRes = await apiApp.inject({
   method: 'POST', url: '/v1/widget-keys', headers: h,
-  payload: { name: 'jsdom test', allowedOrigins: [ALLOWED_ORIGIN] },
+  payload: { name: 'jsdom test', allowedOrigins: [CLIENT_SITE_ORIGIN] },
 });
 const publicKey = keyRes.json().publicKey;
-console.log(`widget key issued, allowlisted for ${ALLOWED_ORIGIN}\n`);
+console.log(`widget key issued, allowlisted for ${CLIENT_SITE_ORIGIN}\n`);
 
-console.log(`serving built widget-app on ${ALLOWED_ORIGIN}...`);
+const HOSTING_ORIGIN = `http://127.0.0.1:${WIDGET_PORT}`;
+console.log(`serving built widget-app on ${HOSTING_ORIGIN}...`);
 const staticServer = await serveStatic('apps/widget-app/dist', WIDGET_PORT);
-const otherSiteServer = await serveStatic('apps/widget-app/dist', OTHER_SITE_PORT);
 
-async function loadWidgetPage(origin) {
-  const url = `${origin}/?key=${publicKey}&api=http://127.0.0.1:${API_PORT}`;
-  const html = await (await fetch(`${origin}/index.html`)).text();
+/**
+ * simulatedParentOrigin stands in for what the LOADER would have captured
+ * from window.location.origin on the real embedding page, and forwarded via
+ * the iframe's src as `?origin=...`. The widget bundle is always fetched from
+ * HOSTING_ORIGIN regardless of this value — it never needs its own server,
+ * which is the point: an iframe's own outgoing requests always report its own
+ * hosting origin via the browser's Origin header, never the parent page's, so
+ * the widget-app cannot and must not rely on the real HTTP Origin header for
+ * the allowlist decision (see public-chat-routes.ts and
+ * docs/phases/phase-3-widget.md — this was caught by an actual browser click,
+ * not by an earlier, less realistic version of this very script).
+ */
+async function loadWidgetPage(simulatedParentOrigin) {
+  // Fetch the URL an iframe would actually be given (root path + query
+  // string), not /index.html directly — a static server that only handles
+  // the bare root path can 404 on this exact request while looking fine in
+  // every other check.
+  const url =
+    `${HOSTING_ORIGIN}/?key=${publicKey}&api=http://127.0.0.1:${API_PORT}` +
+    `&origin=${encodeURIComponent(simulatedParentOrigin)}`;
+  const html = await (await fetch(url)).text();
   const dom = new JSDOM(html, {
     url, runScripts: 'dangerously', pretendToBeVisual: true,
   });
   // jsdom has no fetch/ReadableStream of its own; Node's is real and streams.
-  // The one gap: a real browser auto-attaches an Origin header derived from
-  // page context, which Node's fetch has no concept of and won't add. That
-  // header is the ONLY thing shimmed here — method, the x-widget-key header,
-  // and the body all come untouched from the app's real request construction,
-  // so the origin-allowlist check on the server is still exercised for real.
-  dom.window.fetch = (resource, init = {}) =>
-    fetch(resource, { ...init, headers: { ...init.headers, origin: dom.window.location.origin } });
+  dom.window.fetch = (resource, init = {}) => fetch(resource, init);
   const scriptSrc = /<script[^>]*\btype="module"[^>]*\bsrc="([^"]+)"/.exec(html)[1];
-  const bundle = await (await fetch(`${origin}${scriptSrc}`)).text();
+  const bundle = await (await fetch(`${HOSTING_ORIGIN}${scriptSrc}`)).text();
   dom.window.eval(bundle.replace(/^import\s+[^;]+;\s*/gm, '')); // strip the one bare CSS import Vite emits
   return dom;
 }
@@ -142,7 +163,7 @@ function setReactInputValue(el, value) {
 }
 
 console.log('\n── loading widget-app fresh in jsdom (real bundle, real React) ──');
-const dom = await loadWidgetPage(ALLOWED_ORIGIN);
+const dom = await loadWidgetPage(CLIENT_SITE_ORIGIN);
 const { document } = dom.window;
 
 const textarea = await waitFor(() => document.querySelector('textarea'), 'chat input to mount');
@@ -175,7 +196,7 @@ await waitFor(() => citation.querySelector('blockquote'), 'excerpt to appear on 
 assert(citation.querySelector('blockquote').textContent.includes('14 days'), 'the revealed excerpt is the real chunk text, not a placeholder');
 
 console.log('\n── verifying the origin allowlist over a REAL HTTP round trip ──');
-const rejectedDom = await loadWidgetPage(`http://127.0.0.1:${OTHER_SITE_PORT}`); // NOT the allowlisted origin
+const rejectedDom = await loadWidgetPage(OTHER_SITE_ORIGIN); // NOT on the allowlist
 const rejTextarea = await waitFor(() => rejectedDom.window.document.querySelector('textarea'), 'second page to mount');
 setReactInputValue(rejTextarea, 'anything');
 rejTextarea.closest('form').dispatchEvent(new rejectedDom.window.Event('submit', { bubbles: true, cancelable: true }));
@@ -189,7 +210,6 @@ assert(true, 'a request from a non-allowlisted origin is refused end-to-end, and
 console.log('\nALL CHECKS PASSED\n');
 
 staticServer.close();
-otherSiteServer.close();
 await apiApp.close();
 await db.delete(organization).where(eq(organization.id, orgId));
 await db.execute(`DELETE FROM "user" WHERE email = '${email}'`);

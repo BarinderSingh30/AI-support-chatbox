@@ -132,6 +132,15 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByRole('textbox')).not.toBeDisabled());
   });
 
+  it('forwards the embedding page\'s origin to every request', async () => {
+    const fetchImpl = vi.fn().mockImplementation(() => Promise.resolve(sseResponse(ANSWER_SSE)));
+    render(<App {...props} parentOrigin="https://client-site.test" fetchImpl={fetchImpl} />);
+    const user = userEvent.setup();
+    await user.type(screen.getByRole('textbox'), 'q{Enter}');
+    await waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
+    expect(fetchImpl.mock.calls[0]![1].headers['x-widget-origin']).toBe('https://client-site.test');
+  });
+
   it('persists the session id so a second message continues the conversation', async () => {
     const fetchImpl = vi.fn().mockImplementation(() => Promise.resolve(sseResponse(ANSWER_SSE)));
     render(<App {...props} fetchImpl={fetchImpl} />);

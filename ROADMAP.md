@@ -99,22 +99,25 @@ fired before the call rather than after.
 - [x] Widget-key management API (create/list/revoke, admin session-authenticated)
 - [x] Streaming token render
 - [x] Citation chips that expand to show the quoted passage
-- [x] Public-key auth with exact-match `Origin` allowlist
+- [x] Public-key auth with exact-match origin allowlist (via a loader-captured `x-widget-origin`
+      header, not the browser's `Origin` header — see notes below for why)
 - [x] Per-key rate limiting (in-process sliding window) + per-key monthly message cap
 
 **Demo:** paste four lines of HTML into an unrelated static site and have it work.
-**Exit criteria:** `npm test` — 169 passing across the monorepo. ✅ Plus a real
-(non-component-test) verification: `node scripts/verify-widget-e2e.mjs` loads the actual
-production build fresh in a DOM environment, drives it as a visitor would, and confirms —
-against a real running server, not an injected fetch — that the answer streams in, the
-citation is collapsed by default and reveals the real source excerpt on click, and a request
-from a non-allowlisted origin is refused end-to-end.
-**Browser caveat, stated plainly:** no browser binary is available in this environment, so
-nothing here has been visually confirmed by an actual Chromium/Firefox render — only DOM
-behavior, verified two ways (Testing Library component tests, and the script above loading
-the real built bundle). `scripts/demo-embed.mjs` boots the real stack against live Gemini and
-serves `apps/widget-loader/demo/test-host.html` for a human to open in a real browser and
-click through by hand; that step is still owed.
+**Exit criteria:** `npm test` — 184 passing across the monorepo. ✅
+**Verified live, in an actual Chromium browser** (installed mid-phase for exactly this):
+open the launcher on an unrelated static page, ask a real question, get a live Gemini answer
+streamed in with a correct citation, click the citation to reveal the real quoted excerpt —
+zero console errors, correct CORS headers, confirmed via the browser's own Network/Console
+inspectors, not inferred from logs.
+**Two real bugs only the browser caught** — both invisible to 184 passing tests and two
+rounds of jsdom-based verification: (1) an iframe's own `fetch()` structurally cannot report
+its parent page's origin via the `Origin` header, which would have made the origin allowlist
+non-functional for every real deployment; (2) `reply.raw.writeHead()` was silently discarding
+CORS headers Fastify had queued upstream, so the actual streamed response — not the OPTIONS
+preflight — shipped with no `Access-Control-Allow-Origin`, invisible to curl since CORS is
+browser-enforced only. Full root-cause writeup, including why the automated verification
+missed both: `docs/phases/phase-3-widget.md`.
 
 ---
 
