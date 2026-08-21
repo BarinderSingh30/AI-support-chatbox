@@ -10,6 +10,7 @@ import type { Embedder } from '../ingestion/embedder.ts';
 import { estimateTokens } from '../ingestion/chunker.ts';
 import { hybridSearch, type RetrievedChunk } from '../retrieval/hybrid-search.ts';
 import { buildGroundingPrompt, NO_ANSWER_TOKEN } from './grounding-prompt.ts';
+import { matchConversational } from './conversational.ts';
 
 const DEFAULTS = {
   // See org_settings.minScore for how this number was measured.
@@ -116,6 +117,27 @@ export async function* answerQuestion(
   const noAnswerMessage = settings?.noAnswerMessage ?? DEFAULTS.noAnswerMessage;
 
   const sessionId = await ensureSession(input);
+
+  // ─── Conversational short-circuit ───────────────────────────────────────
+  // Greetings, thanks, and acknowledgments aren't questions about the docs —
+  // don't spend an embedding call or an LLM call finding that out, and don't
+  // tell the visitor "I couldn't find that in the documentation" for a "got
+  // it". Handled before the relevance gate on purpose: it's cheaper and it's
+  // never a false positive on a real question (see matchConversational).
+  const conversationalReply = matchConversational(question);
+  if (conversationalReply) {
+    await persistMessage(orgId, sessionId, { role: 'user', content: question });
+    yield { type: 'token', text: conversationalReply };
+    yield { type: 'citations', citations: [] };
+    const messageId = await persistMessage(orgId, sessionId, {
+      role: 'assistant', content: conversationalReply, answered: true, topScore: 0,
+      promptTokens: 0, outputTokens: 0, costUsd: 0, latencyMs: Date.now() - startedAt,
+    });
+    return {
+      sessionId, messageId, answered: true, citations: [], topScore: 0,
+      promptTokens: 0, outputTokens: 0, costUsd: 0, latencyMs: Date.now() - startedAt,
+    };
+  }
 
   // Embedding the query is unavoidable — it is what the gate is measured on.
   const queryVector = await deps.embedder.embedQuery(question);

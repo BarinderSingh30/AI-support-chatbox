@@ -123,6 +123,24 @@ describe('chat over SSE', () => {
     expect(body.messages[1].citations[0].content).toContain('14 days');
   });
 
+  it('answers conversational filler without hitting retrieval or the LLM', async () => {
+    const res = await app.inject({
+      method: 'POST', url: '/v1/chat', headers: authed(), payload: { question: 'got it' },
+    });
+    expect(res.statusCode).toBe(200);
+
+    const events = parseSse(res.body);
+    const text = events.filter((e) => e.event === 'token').map((e) => e.data.text).join('');
+    expect(text).not.toContain("couldn't find");
+
+    const citations = events.find((e) => e.event === 'citations')!.data.citations;
+    expect(citations).toHaveLength(0);
+
+    const done = events.find((e) => e.event === 'done')!.data;
+    expect(done.answered).toBe(true);
+    expect(done.costUsd).toBe(0);
+  });
+
   it('rejects an empty question', async () => {
     const res = await app.inject({
       method: 'POST', url: '/v1/chat', headers: authed(), payload: { question: '' },
